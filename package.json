@@ -1,0 +1,12 @@
+{
+  "name": "infra",
+  "version": "0.0.0-internal",
+  "scripts": {
+    "do": "terraform -chdir=do",
+    "do:init": "pnpm do init && mkdir ./do/outputs",
+    "do:apply": "pnpm do apply -var-file local.tfvars",
+    "do:destroy": "pnpm do destroy",
+    "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./do/outputs/kubeconfig"
+  },
+  "license": "UNLICENSED"
+}
