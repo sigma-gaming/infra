@@ -92,6 +92,22 @@ data "talos_machine_configuration" "machineconfig_cp" {
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.machine_secrets.machine_secrets
   depends_on       = [digitalocean_loadbalancer.talos_lb]
+  config_patches = [
+    yamlencode({
+      "cluster" : {
+        "network" : {
+          "cni" : {
+            "name" : "flannel",
+            "flannel" : {
+              "extraArgs" : [
+                "--iface=eth1"
+              ]
+            }
+          }
+        }
+      }
+    })
+  ]
 }
 
 resource "talos_machine_configuration_apply" "cp_config_apply" {

@@ -5,8 +5,10 @@
     "do": "terraform -chdir=do",
     "do:init": "pnpm do init && mkdir ./do/outputs",
     "do:apply": "pnpm do apply -var-file local.tfvars",
-    "do:destroy": "pnpm do destroy",
-    "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./do/outputs/kubeconfig"
+    "do:destroy": "pnpm do destroy -var-file local.tfvars",
+    "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./do/outputs/kubeconfig",
+    "do:output:talosconfig": "pnpm do output -raw talosconfig > ./do/outputs/talosconfig",
+    "talosctl": "talosctl --talosconfig ./do/outputs/talosconfig"
   },
   "license": "UNLICENSED"
 }
