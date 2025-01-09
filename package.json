@@ -2,8 +2,12 @@
   "name": "infra",
   "version": "0.0.0-internal",
   "scripts": {
+    "cf": "terraform -chdir=cf",
+    "cf:init": "pnpm cf init && mkdir -p ./cf/outputs",
+    "cf:apply": "pnpm cf apply -var-file local.tfvars",
+    "cf:destroy": "pnpm cf destroy -var-file local.tfvars",
     "do": "terraform -chdir=do",
-    "do:init": "pnpm do init && mkdir ./do/outputs",
+    "do:init": "pnpm do init && mkdir -p ./do/outputs",
     "do:apply": "pnpm do apply -var-file local.tfvars",
     "do:destroy": "pnpm do destroy -var-file local.tfvars",
     "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./do/outputs/kubeconfig",
