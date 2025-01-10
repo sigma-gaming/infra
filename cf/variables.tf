@@ -15,3 +15,9 @@ variable "application_enable_ech" {
   type        = bool
   default     = false
 }
+
+variable "application_target_ip" {
+  description = "Target IP address"
+  type        = string
+  default     = ""
+}

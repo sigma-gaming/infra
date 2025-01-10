@@ -15,11 +15,6 @@ terraform {
       version = "1.6.1"
     }
 
-    curl = {
-      source  = "marcofranssen/curl"
-      version = "0.7.0"
-    }
-
     random = {
       source  = "hashicorp/random"
       version = "3.6.3"
@@ -33,4 +28,3 @@ provider "cloudflare" {
 
 provider "http" {}
 provider "curl2" {}
-provider "curl" {}
