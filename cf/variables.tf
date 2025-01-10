@@ -11,9 +11,9 @@ variable "application_domains" {
 }
 
 variable "application_enable_ech" {
-  description = "Enable ECH for application zones"
-  type        = bool
-  default     = false
+  description = "ECH value for application zones"
+  type        = string
+  default     = "off"
 }
 
 variable "application_target_ip" {

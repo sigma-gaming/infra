@@ -46,25 +46,49 @@ resource "cloudflare_zone_settings_override" "application_settings_override" {
   }
 }
 
+data "curl2" "get_application_ech" {
+  for_each = data.http.application_zones
+
+  http_method = "GET"
+  uri         = "https://api.cloudflare.com/client/v4/zones/${jsondecode(each.value.response_body)["result"][0]["id"]}/settings/ech"
+
+  auth_type    = "Bearer"
+  bearer_token = var.cloudflare_api_token
+}
+
+locals {
+  domains_to_update = {
+    for key, value in data.curl2.get_application_ech :
+    key => jsondecode(value.response.body)["result"]["value"]
+    if jsondecode(value.response.body)["result"]["value"] != var.application_enable_ech
+  }
+}
+
 resource "random_id" "trigger" {
   byte_length = 8
+
+  keepers = {
+    timestamp = timestamp()
+  }
 }
 
 data "curl2" "manage_application_ech" {
-  for_each = data.http.application_zones
-
-  uri = "https://api.cloudflare.com/client/v4/zones/${jsondecode(each.value.response_body)["result"][0]["id"]}/settings/ech"
+  for_each = local.domains_to_update
 
   http_method = "PATCH"
+  uri         = "https://api.cloudflare.com/client/v4/zones/${jsondecode(data.http.application_zones[each.key].response_body)["result"][0]["id"]}/settings/ech"
 
   json = jsonencode({
-    value = var.application_enable_ech ? "on" : "off"
+    value = var.application_enable_ech
   })
 
   auth_type    = "Bearer"
   bearer_token = var.cloudflare_api_token
 
-  depends_on = [random_id.trigger]
+  headers = {
+    # Force the request to be executed after apply
+    "X-Random" = random_id.trigger.b64_std
+  }
 
   lifecycle {
     postcondition {
