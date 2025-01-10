@@ -1,6 +1,8 @@
-# TF setup
-
 terraform {
+  backend "gcs" {
+    prefix = "do"
+  }
+
   required_providers {
     digitalocean = {
       source  = "digitalocean/digitalocean"
