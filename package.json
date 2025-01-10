@@ -10,13 +10,13 @@
     "cf:tls:init": "pnpm cf:tls init -backend-config=../backend/backend.tfvars",
     "cf:tls:apply": "pnpm cf:tls apply -var-file local.tfvars",
     "cf:tls:destroy": "pnpm cf:tls destroy -var-file local.tfvars",
-    "do": "terraform -chdir=do",
-    "do:init": "pnpm do init -backend-config=../backend/backend.tfvars && mkdir -p ./do/outputs",
+    "do": "mkdir -p ./outputs/do && terraform -chdir=do",
+    "do:init": "pnpm do init -backend-config=../backend/backend.tfvars",
     "do:apply": "pnpm do apply -var-file local.tfvars",
-    "do:destroy": "pnpm do destroy -var-file local.tfvars",
-    "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./do/outputs/kubeconfig",
-    "do:output:talosconfig": "pnpm do output -raw talosconfig > ./do/outputs/talosconfig",
-    "talosctl": "talosctl --talosconfig ./do/outputs/talosconfig"
+    "do:destroy": "pnpm do destroy -var-file local.tfvars && rm -rf ./outputs/do",
+    "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./outputs/do/kubeconfig",
+    "do:output:talosconfig": "pnpm do output -raw talosconfig > ./outputs/do/talosconfig",
+    "talosctl": "talosctl --talosconfig ./outputs/do/talosconfig"
   },
   "license": "UNLICENSED"
 }

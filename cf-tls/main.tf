@@ -23,24 +23,24 @@ resource "cloudflare_origin_ca_certificate" "application_cert" {
   min_days_for_renewal = 365
 }
 
-# resource "kubernetes_namespace" "application_tls_namespace" {
-#   metadata {
-#     name = "cloudflare-tls"
-#   }
-# }
+resource "kubernetes_namespace" "application_tls_namespace" {
+  metadata {
+    name = "cloudflare-tls"
+  }
+}
 
-# resource "kubernetes_secret" "application_tls_secret" {
-#   for_each = toset(var.application_domains)
+resource "kubernetes_secret" "application_tls_secret" {
+  for_each = toset(var.application_domains)
 
-#   metadata {
-#     name      = "${each.key}-cloudflare-tls"
-#     namespace = kubernetes_namespace.application_tls_namespace.metadata[0].name
-#   }
+  metadata {
+    name      = "${each.key}-cloudflare-tls"
+    namespace = kubernetes_namespace.application_tls_namespace.metadata[0].name
+  }
 
-#   type = "kubernetes.io/tls"
+  type = "kubernetes.io/tls"
 
-#   data = {
-#     "tls.crt" = cloudflare_origin_ca_certificate.application_cert[each.key].certificate
-#     "tls.key" = tls_private_key.application_tls_key[each.key].private_key_pem
-#   }
-# }
+  data = {
+    "tls.crt" = cloudflare_origin_ca_certificate.application_cert[each.key].certificate
+    "tls.key" = tls_private_key.application_tls_key[each.key].private_key_pem
+  }
+}

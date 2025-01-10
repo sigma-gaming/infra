@@ -162,7 +162,7 @@ resource "talos_machine_bootstrap" "bootstrap" {
   node                 = digitalocean_droplet.talos_control_plane[0].ipv4_address
 }
 
-data "talos_cluster_kubeconfig" "kubeconfig" {
+resource "talos_cluster_kubeconfig" "kubeconfig" {
   client_configuration = talos_machine_secrets.machine_secrets.client_configuration
   node                 = digitalocean_droplet.talos_control_plane[0].ipv4_address
 }
