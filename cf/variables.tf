@@ -39,3 +39,9 @@ variable "application_target_ip" {
   type        = string
   default     = ""
 }
+
+variable "bypass_waf_token" {
+  description = "Bypass WAF token"
+  type        = string
+  default     = ""
+}

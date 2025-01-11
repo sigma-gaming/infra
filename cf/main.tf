@@ -86,6 +86,32 @@ resource "cloudflare_zone_settings_override" "application_settings_override" {
   }
 }
 
+resource "cloudflare_ruleset" "application_ruleset" {
+  for_each = var.bypass_waf_token != "" ? data.curl2.application_zones : {}
+
+  zone_id     = jsondecode(each.value.response.body)["result"][0]["id"]
+  name        = "bypass-waf"
+  description = "Bypass WAF"
+  kind        = "zone"
+  phase       = "http_request_firewall_custom"
+
+  rules {
+    enabled     = true
+    description = "Bypass WAF"
+    action      = "skip"
+    expression  = "(any(http.request.headers[\"x-bypass-waf\"][*] eq \"${var.bypass_waf_token}\"))"
+
+    action_parameters {
+      phases   = ["http_ratelimit", "http_request_firewall_managed", "http_request_sbfm"]
+      products = ["uaBlock", "bic", "securityLevel"]
+    }
+
+    logging {
+      enabled = true
+    }
+  }
+}
+
 data "curl2" "get_application_ech" {
   for_each = data.curl2.application_zones
 
