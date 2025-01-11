@@ -43,7 +43,7 @@ resource "digitalocean_droplet" "talos_application_workers_production" {
   image    = var.talos_image_id
   name     = "${var.cluster_name}-application-worker-${count.index}"
   region   = var.do_region
-  size     = var.do_plan_worker
+  size     = var.do_plan_application_worker_production
   count    = var.num_application_workers_production
   ssh_keys = [digitalocean_ssh_key.fake_ssh_key.id]
   tags     = [digitalocean_tag.talos_application_workers_tag.id, digitalocean_tag.talos_production_tag.id]
@@ -53,7 +53,7 @@ resource "digitalocean_droplet" "talos_service_workers" {
   image    = var.talos_image_id
   name     = "${var.cluster_name}-service-worker-${count.index}"
   region   = var.do_region
-  size     = var.do_plan_worker
+  size     = var.do_plan_service_worker
   count    = var.num_service_workers
   ssh_keys = [digitalocean_ssh_key.fake_ssh_key.id]
   tags     = [digitalocean_tag.talos_service_workers_tag.id]

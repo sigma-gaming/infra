@@ -58,10 +58,16 @@ variable "do_plan_control_plane" {
   default     = "s-2vcpu-4gb"
 }
 
-variable "do_plan_worker" {
+variable "do_plan_service_worker" {
   description = "DO plan to use for worker nodes"
   type        = string
   default     = "s-2vcpu-4gb"
+}
+
+variable "do_plan_application_worker_production" {
+  description = "DO plan to use for application worker nodes"
+  type        = string
+  default     = "s-4vcpu-8gb"
 }
 
 variable "create_etcd_tls_secret" {
