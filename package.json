@@ -16,7 +16,12 @@
     "do:destroy": "pnpm do destroy -var-file local.tfvars && rm -rf ./outputs/do",
     "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./outputs/do/kubeconfig",
     "do:output:talosconfig": "pnpm do output -raw talosconfig > ./outputs/do/talosconfig",
-    "talosctl": "talosctl --talosconfig ./outputs/do/talosconfig"
+    "talosctl": "talosctl --talosconfig ./outputs/do/talosconfig",
+    "flux": "terraform -chdir=flux",
+    "flux:init": "pnpm flux init -backend-config=../backend/backend.tfvars",
+    "flux:apply:bootstrap": "pnpm flux apply -var-file local.tfvars -target=flux_bootstrap_git.flux_bootstrap",
+    "flux:apply": "pnpm flux apply -var-file local.tfvars",
+    "flux:destroy": "pnpm flux destroy -var-file local.tfvars"
   },
   "license": "UNLICENSED"
 }

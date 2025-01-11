@@ -4,6 +4,24 @@ variable "cloudflare_api_token" {
   default     = ""
 }
 
+variable "cluster_domain" {
+  description = "Cluster domain"
+  type        = string
+  default     = "example.com"
+}
+
+variable "cluster_name" {
+  description = "Cluster name"
+  type        = string
+  default     = "main"
+}
+
+variable "cluster_target_ip" {
+  description = "Cluster target IP address"
+  type        = string
+  default     = ""
+}
+
 variable "application_domains" {
   description = "Application domains"
   type        = list(string)

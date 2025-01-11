@@ -21,6 +21,10 @@ resource "digitalocean_tag" "talos_application_workers_tag" {
   name = "${var.cluster_name}-application-worker"
 }
 
+resource "digitalocean_tag" "talos_production_tag" {
+  name = "${var.cluster_name}-production"
+}
+
 resource "digitalocean_tag" "talos_service_workers_tag" {
   name = "${var.cluster_name}-service-worker"
 }
@@ -35,14 +39,14 @@ resource "digitalocean_droplet" "talos_control_plane" {
   ssh_keys = [digitalocean_ssh_key.fake_ssh_key.id]
 }
 
-resource "digitalocean_droplet" "talos_application_workers" {
+resource "digitalocean_droplet" "talos_application_workers_production" {
   image    = var.talos_image_id
   name     = "${var.cluster_name}-application-worker-${count.index}"
   region   = var.do_region
   size     = var.do_plan_worker
-  count    = var.num_application_workers
+  count    = var.num_application_workers_production
   ssh_keys = [digitalocean_ssh_key.fake_ssh_key.id]
-  tags     = [digitalocean_tag.talos_application_workers_tag.id]
+  tags     = [digitalocean_tag.talos_application_workers_tag.id, digitalocean_tag.talos_production_tag.id]
 }
 
 resource "digitalocean_droplet" "talos_service_workers" {
@@ -66,6 +70,23 @@ resource "digitalocean_loadbalancer" "talos_lb" {
 
     target_port     = 6443
     target_protocol = "tcp"
+  }
+
+  forwarding_rule {
+    entry_port     = 80
+    entry_protocol = "http"
+
+    target_port     = 80
+    target_protocol = "http"
+  }
+
+  forwarding_rule {
+    entry_port     = 443
+    entry_protocol = "https"
+
+    target_port     = 443
+    target_protocol = "https"
+    tls_passthrough = true
   }
 
   healthcheck {
@@ -92,6 +113,7 @@ data "talos_machine_configuration" "machineconfig_cp" {
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.machine_secrets.machine_secrets
   depends_on       = [digitalocean_loadbalancer.talos_lb]
+
   config_patches = [
     yamlencode({
       "cluster" : {
@@ -103,6 +125,21 @@ data "talos_machine_configuration" "machineconfig_cp" {
                 "--iface=eth1"
               ]
             }
+          }
+        }
+        "etcd" : {
+          "extraArgs" : {
+            "listen-metrics-urls" : "https://0.0.0.0:2379"
+          }
+        }
+        "controllerManager" : {
+          "extraArgs" : {
+            "bind-address" : "0.0.0.0"
+          }
+        }
+        "scheduler" : {
+          "extraArgs" : {
+            "bind-address" : "0.0.0.0"
           }
         }
       }
@@ -125,16 +162,18 @@ data "talos_machine_configuration" "machineconfig_worker" {
   depends_on       = [digitalocean_loadbalancer.talos_lb]
 }
 
-resource "talos_machine_configuration_apply" "application_worker_config_apply" {
+resource "talos_machine_configuration_apply" "application_worker_production_config_apply" {
   client_configuration        = talos_machine_secrets.machine_secrets.client_configuration
   machine_configuration_input = data.talos_machine_configuration.machineconfig_worker.machine_configuration
-  count                       = length(digitalocean_droplet.talos_application_workers)
-  node                        = digitalocean_droplet.talos_application_workers[count.index].ipv4_address
+  count                       = length(digitalocean_droplet.talos_application_workers_production)
+  node                        = digitalocean_droplet.talos_application_workers_production[count.index].ipv4_address
+
   config_patches = [
     yamlencode({
       "machine" : {
         "nodeLabels" : {
-          "role" : "application"
+          "role" : "application",
+          "environment" : "production"
         }
       }
     })
@@ -146,6 +185,7 @@ resource "talos_machine_configuration_apply" "service_worker_config_apply" {
   machine_configuration_input = data.talos_machine_configuration.machineconfig_worker.machine_configuration
   count                       = length(digitalocean_droplet.talos_service_workers)
   node                        = digitalocean_droplet.talos_service_workers[count.index].ipv4_address
+
   config_patches = [
     yamlencode({
       "machine" : {
@@ -165,4 +205,19 @@ resource "talos_machine_bootstrap" "bootstrap" {
 resource "talos_cluster_kubeconfig" "kubeconfig" {
   client_configuration = talos_machine_secrets.machine_secrets.client_configuration
   node                 = digitalocean_droplet.talos_control_plane[0].ipv4_address
+}
+
+resource "kubernetes_secret" "etcd_tls_secret" {
+  count = var.create_etcd_tls_secret ? 1 : 0
+  metadata {
+    name      = "etcd-tls"
+    namespace = var.etcd_tls_secret_namespace
+  }
+
+  type = "kubernetes.io/tls"
+
+  data = {
+    "tls.crt" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.cert)
+    "tls.key" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.key)
+  }
 }
