@@ -1,13 +1,22 @@
-data "curl2" "cluster_zone" {
-  http_method = "GET"
-  uri         = "https://api.cloudflare.com/client/v4/zones?name=${var.cluster_domain}"
+resource "cloudflare_zone" "cluster_zone" {
+  account_id = var.cloudflare_account_id
 
-  auth_type    = "Bearer"
-  bearer_token = var.cloudflare_api_token
+  zone = var.cluster_domain
+  plan = "free"
+}
+
+resource "cloudflare_zone_settings_override" "cluster_settings_override" {
+  zone_id = cloudflare_zone.cluster_zone.id
+
+  settings {
+    always_use_https         = "on"
+    automatic_https_rewrites = "on"
+    ssl                      = "full"
+  }
 }
 
 resource "cloudflare_record" "cluster_dns_record" {
-  zone_id = jsondecode(data.curl2.cluster_zone.response.body)["result"][0]["id"]
+  zone_id = cloudflare_zone.cluster_zone.id
   name    = "${var.cluster_name}.${var.cluster_domain}"
   type    = "A"
   content = var.cluster_target_ip
@@ -18,7 +27,7 @@ resource "cloudflare_record" "cluster_dns_record" {
 }
 
 resource "cloudflare_record" "cluster_dns_record_webhooks" {
-  zone_id = jsondecode(data.curl2.cluster_zone.response.body)["result"][0]["id"]
+  zone_id = cloudflare_zone.cluster_zone.id
   name    = "${var.cluster_name}-webhooks.${var.cluster_domain}"
   type    = "A"
   content = var.cluster_target_ip
@@ -28,31 +37,32 @@ resource "cloudflare_record" "cluster_dns_record_webhooks" {
   allow_overwrite = true
 }
 
-resource "cloudflare_zone_settings_override" "cluster_settings_override" {
-  zone_id = jsondecode(data.curl2.cluster_zone.response.body)["result"][0]["id"]
+resource "cloudflare_zone" "application_zone" {
+  for_each = toset(var.application_domains)
+
+  account_id = var.cloudflare_account_id
+  zone       = each.key
+  plan       = lookup(var.application_plan_map, each.key, "free")
+}
+
+resource "cloudflare_zone_settings_override" "application_settings_override" {
+  for_each = cloudflare_zone.application_zone
+
+  zone_id = each.value.id
 
   settings {
     always_use_https         = "on"
     automatic_https_rewrites = "on"
-    ssl                      = "full"
+    ssl                      = "strict"
+    security_level           = lookup(var.application_security_level_map, each.key, "medium")
   }
 }
 
-data "curl2" "application_zones" {
-  for_each = toset(var.application_domains)
-
-  http_method = "GET"
-  uri         = "https://api.cloudflare.com/client/v4/zones?name=${each.key}"
-
-  auth_type    = "Bearer"
-  bearer_token = var.cloudflare_api_token
-}
-
 resource "cloudflare_record" "application_dns_record" {
-  for_each = data.curl2.application_zones
+  for_each = cloudflare_zone.application_zone
 
-  zone_id = jsondecode(each.value.response.body)["result"][0]["id"]
-  name    = jsondecode(each.value.response.body)["result"][0]["name"]
+  zone_id = each.value.id
+  name    = each.value.zone
   type    = "A"
   content = var.application_target_ip
   ttl     = 1
@@ -62,10 +72,10 @@ resource "cloudflare_record" "application_dns_record" {
 }
 
 resource "cloudflare_record" "application_dns_record_wildcard" {
-  for_each = data.curl2.application_zones
+  for_each = cloudflare_zone.application_zone
 
-  zone_id = jsondecode(each.value.response.body)["result"][0]["id"]
-  name    = "*.${jsondecode(each.value.response.body)["result"][0]["name"]}"
+  zone_id = each.value.id
+  name    = "*.${each.value.zone}"
   type    = "A"
   content = var.application_target_ip
   ttl     = 1
@@ -74,22 +84,10 @@ resource "cloudflare_record" "application_dns_record_wildcard" {
   allow_overwrite = true
 }
 
-resource "cloudflare_zone_settings_override" "application_settings_override" {
-  for_each = data.curl2.application_zones
-
-  zone_id = jsondecode(each.value.response.body)["result"][0]["id"]
-
-  settings {
-    always_use_https         = "on"
-    automatic_https_rewrites = "on"
-    ssl                      = "strict"
-  }
-}
-
 resource "cloudflare_ruleset" "application_ruleset" {
-  for_each = var.bypass_waf_token != "" ? data.curl2.application_zones : {}
+  for_each = var.bypass_waf_token != "" ? cloudflare_zone.application_zone : {}
 
-  zone_id     = jsondecode(each.value.response.body)["result"][0]["id"]
+  zone_id     = each.value.id
   name        = "bypass-waf"
   description = "Bypass WAF"
   kind        = "zone"
@@ -112,37 +110,11 @@ resource "cloudflare_ruleset" "application_ruleset" {
   }
 }
 
-data "curl2" "get_application_ech" {
-  for_each = data.curl2.application_zones
-
-  http_method = "GET"
-  uri         = "https://api.cloudflare.com/client/v4/zones/${jsondecode(each.value.response.body)["result"][0]["id"]}/settings/ech"
-
-  auth_type    = "Bearer"
-  bearer_token = var.cloudflare_api_token
-}
-
-locals {
-  domains_to_update = {
-    for key, value in data.curl2.get_application_ech :
-    key => jsondecode(value.response.body)["result"]["value"]
-    if jsondecode(value.response.body)["result"]["value"] != var.application_enable_ech
-  }
-}
-
-resource "random_id" "trigger" {
-  byte_length = 8
-
-  keepers = {
-    timestamp = timestamp()
-  }
-}
-
 data "curl2" "manage_application_ech" {
-  for_each = local.domains_to_update
+  for_each = cloudflare_zone.application_zone
 
   http_method = "PATCH"
-  uri         = "https://api.cloudflare.com/client/v4/zones/${jsondecode(data.curl2.application_zones[each.key].response.body)["result"][0]["id"]}/settings/ech"
+  uri         = "https://api.cloudflare.com/client/v4/zones/${each.value.id}/settings/ech"
 
   json = jsonencode({
     value = var.application_enable_ech
@@ -150,11 +122,6 @@ data "curl2" "manage_application_ech" {
 
   auth_type    = "Bearer"
   bearer_token = var.cloudflare_api_token
-
-  headers = {
-    # Force the request to be executed after apply
-    "X-Random" = random_id.trigger.b64_std
-  }
 
   lifecycle {
     postcondition {
