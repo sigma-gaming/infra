@@ -47,7 +47,7 @@ variable "application_plan_map" {
 
 variable "application_security_level_map" {
   description = "Application security level map"
-  type        = map(string)
+  type        = map(string) # medium, high, under_attack
   default     = {}
 
   validation {
