@@ -1,3 +1,9 @@
+variable "kubernetes_config_context" {
+  type        = string
+  description = "Kubernetes config context"
+  default     = ""
+}
+
 variable "github_organization" {
   description = "GitHub organization"
   type        = string

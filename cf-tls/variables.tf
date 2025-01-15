@@ -1,3 +1,9 @@
+variable "kubernetes_config_context" {
+  type        = string
+  description = "Kubernetes config context"
+  default     = ""
+}
+
 variable "stand" {
   type        = string
   description = "Stand prefix for remote state bucket"

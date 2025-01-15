@@ -1,28 +1,26 @@
 terraform {
   backend "gcs" {
-    prefix = "cf-tls"
+    prefix = "gcloud"
   }
 
   required_providers {
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "4.50.0"
-    }
-
-    tls = {
-      source  = "hashicorp/tls"
-      version = "4.0.6"
-    }
-
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "2.35.1"
     }
+
+    google = {
+      source  = "hashicorp/google"
+      version = "6.16.0"
+    }
   }
 }
 
-provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+# Configure providers
+
+provider "google" {
+  project = var.gcloud_project
+  region  = var.gcloud_default_region
 }
 
 provider "kubernetes" {
