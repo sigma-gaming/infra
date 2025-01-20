@@ -116,6 +116,13 @@ data "talos_machine_configuration" "machineconfig_cp" {
 
   config_patches = [
     yamlencode({
+      "machine" : {
+        "kubelet" : {
+          "extraArgs" : {
+            "rotate-server-certificates" : "true"
+          }
+        }
+      }
       "cluster" : {
         "network" : {
           "cni" : {
@@ -171,6 +178,11 @@ resource "talos_machine_configuration_apply" "application_worker_production_conf
   config_patches = [
     yamlencode({
       "machine" : {
+        "kubelet" : {
+          "extraArgs" : {
+            "rotate-server-certificates" : "true"
+          }
+        }
         "nodeLabels" : {
           "role" : "application",
           "environment" : "production"
@@ -189,6 +201,11 @@ resource "talos_machine_configuration_apply" "service_worker_config_apply" {
   config_patches = [
     yamlencode({
       "machine" : {
+        "kubelet" : {
+          "extraArgs" : {
+            "rotate-server-certificates" : "true"
+          }
+        }
         "nodeLabels" : {
           "role" : "service"
         }
