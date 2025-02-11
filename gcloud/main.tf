@@ -37,16 +37,30 @@ resource "google_service_account" "backup_account" {
   display_name = "Service Account for backup bucket access"
 }
 
-# Grant specific permissions to access backup bucket
-resource "google_storage_bucket_iam_member" "backup_object_viewer" {
-  bucket = google_storage_bucket.backups.name
-  role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${google_service_account.backup_account.email}"
+# Create custom role for backup bucket access
+resource "google_project_iam_custom_role" "backup_admin" {
+  role_id     = "backupAdmin"
+  title       = "Backup Admin"
+  description = "A custom role for backup bucket access"
+  permissions = [
+    "storage.buckets.get",
+    "storage.buckets.list",
+    "storage.folders.create",
+    "storage.folders.delete",
+    "storage.objects.list",
+    "storage.objects.create",
+    "storage.objects.get",
+    "storage.objects.update",
+    "storage.objects.delete",
+    "storage.multipartUploads.abort",
+    "storage.multipartUploads.create",
+    "storage.multipartUploads.listParts",
+  ]
 }
 
-resource "google_storage_bucket_iam_member" "backup_object_creator" {
+resource "google_storage_bucket_iam_member" "backup_admin" {
   bucket = google_storage_bucket.backups.name
-  role   = "roles/storage.objectCreator"
+  role   = google_project_iam_custom_role.backup_admin.id
   member = "serviceAccount:${google_service_account.backup_account.email}"
 }
 

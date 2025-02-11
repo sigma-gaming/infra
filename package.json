@@ -4,6 +4,7 @@
   "scripts": {
     "do": "mkdir -p ./outputs/do && terraform -chdir=do",
     "do:init": "pnpm do init -backend-config=../backend/backend.tfvars",
+    "do:plan": "pnpm do plan -var-file local.tfvars",
     "do:apply": "pnpm do apply -var-file local.tfvars",
     "do:destroy": "pnpm do destroy -var-file local.tfvars && rm -rf ./outputs/do",
     "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./outputs/do/kubeconfig",
@@ -11,6 +12,7 @@
     "talosctl": "talosctl --talosconfig ./outputs/do/talosconfig",
     "cf": "terraform -chdir=cf",
     "cf:init": "pnpm cf init -backe-var-file local.tfvarsnd-config=../backend/backend.tfvars",
+    "cf:plan": "pnpm cf plan -var-file local.tfvars",
     "cf:apply": "pnpm cf apply ",
     "cf:destroy": "pnpm cf destroy -var-file local.tfvars",
     "cf:tls": "terraform -chdir=cf-tls",
@@ -19,10 +21,12 @@
     "cf:tls:destroy": "pnpm cf:tls destroy -var-file local.tfvars",
     "gcloud": "terraform -chdir=gcloud",
     "gcloud:init": "pnpm gcloud init -backend-config=../backend/backend.tfvars",
+    "gcloud:plan": "pnpm gcloud plan -var-file local.tfvars",
     "gcloud:apply": "pnpm gcloud apply -var-file local.tfvars",
     "gcloud:destroy": "pnpm gcloud destroy -var-file local.tfvars",
     "flux": "terraform -chdir=flux",
     "flux:init": "pnpm flux init -backend-config=../backend/backend.tfvars",
+    "flux:plan": "pnpm flux plan -var-file local.tfvars",
     "flux:apply:bootstrap": "pnpm flux apply -var-file local.tfvars -target=flux_bootstrap_git.flux_bootstrap",
     "flux:apply": "pnpm flux apply -var-file local.tfvars",
     "flux:destroy": "pnpm flux destroy -var-file local.tfvars"
