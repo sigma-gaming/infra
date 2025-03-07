@@ -1,31 +1,26 @@
 variable "cloudflare_account_id" {
   description = "Cloudflare account ID"
   type        = string
-  default     = ""
 }
 
 variable "cloudflare_api_token" {
   description = "Cloudflare API token"
   type        = string
-  default     = ""
 }
 
 variable "cluster_domain" {
   description = "Cluster domain"
   type        = string
-  default     = "example.com"
 }
 
 variable "cluster_name" {
   description = "Cluster name"
   type        = string
-  default     = "main"
 }
 
 variable "cluster_target_ip" {
   description = "Cluster target IP address"
   type        = string
-  default     = ""
 }
 
 variable "application_domains" {
@@ -62,14 +57,27 @@ variable "application_enable_ech" {
   default     = "off"
 }
 
-variable "application_target_ip" {
-  description = "Target IP address"
-  type        = string
-  default     = ""
+variable "application_target_ips" {
+  description = "Target IP addresses"
+  type        = list(string)
 }
 
-variable "bypass_waf_token" {
-  description = "Bypass WAF token"
+variable "infisical_environment" {
+  description = "Infisical environment"
   type        = string
-  default     = ""
+}
+
+variable "infisical_client_id" {
+  description = "Infisical client ID"
+  type        = string
+}
+
+variable "infisical_client_secret" {
+  description = "Infisical client secret"
+  type        = string
+}
+
+variable "infisical_project_id" {
+  description = "Infisical project ID"
+  type        = string
 }

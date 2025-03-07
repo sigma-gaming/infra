@@ -34,6 +34,12 @@ variable "gcloud_backups_account_name" {
   default     = "backup-admin"
 }
 
+variable "gcloud_cleanup_account_name" {
+  description = "Name of the cleanup account"
+  type        = string
+  default     = "cleanup-admin"
+}
+
 variable "kubernetes_config_context" {
   type        = string
   description = "Kubernetes config context"
@@ -56,4 +62,10 @@ variable "gcloud_backups_credentials_secret_name" {
   description = "Name of the backups credentials secret"
   type        = string
   default     = "backups-creds"
+}
+
+variable "cleanup_creds_secret_name" {
+  description = "Name of the cleanup credentials secret"
+  type        = string
+  default     = "cleanup-creds"
 }

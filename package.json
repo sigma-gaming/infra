@@ -2,18 +2,37 @@
   "name": "infra",
   "version": "0.0.0-internal",
   "scripts": {
+    "terragrunt": "dotenv -e .env -- terragrunt",
+    "prod:do": "pnpm terragrunt --working-dir envs/prod/do",
+    "prod:do:apply": "pnpm prod:do apply -auto-approve",
+    "prod:do:destroy": "pnpm prod:do destroy -auto-approve",
+    "prod:do:output:kubeconfig": "pnpm prod:do output -raw kubeconfig > ./outputs/do/kubeconfig",
+    "prod:cf": "pnpm terragrunt --working-dir envs/prod/cf",
+    "prod:cf:apply": "pnpm prod:cf apply -auto-approve",
+    "prod:cf:destroy": "pnpm prod:cf destroy -auto-approve",
+    "prod:flux": "pnpm terragrunt --working-dir envs/prod/flux",
+    "prod:flux:apply": "pnpm prod:flux apply -auto-approve",
+    "prod:flux:destroy": "pnpm prod:flux destroy -auto-approve",
+    "prod:flux-webhook": "pnpm terragrunt --working-dir envs/prod/flux-webhook",
+    "prod:flux-webhook:apply": "pnpm prod:flux-webhook apply -auto-approve",
+    "prod:flux-webhook:destroy": "pnpm prod:flux-webhook destroy -auto-approve",
     "do": "mkdir -p ./outputs/do && terraform -chdir=do",
     "do:init": "pnpm do init -backend-config=../backend/backend.tfvars",
     "do:plan": "pnpm do plan -var-file local.tfvars",
     "do:apply": "pnpm do apply -var-file local.tfvars",
-    "do:destroy": "pnpm do destroy -var-file local.tfvars && rm -rf ./outputs/do",
+    "do:destroy": "rm -rf ./outputs/do && pnpm do destroy -var-file local.tfvars",
     "do:output:kubeconfig": "pnpm do output -raw kubeconfig > ./outputs/do/kubeconfig",
     "do:output:talosconfig": "pnpm do output -raw talosconfig > ./outputs/do/talosconfig",
     "talosctl": "talosctl --talosconfig ./outputs/do/talosconfig",
+    "secrets": "terraform -chdir=secrets",
+    "secrets:init": "pnpm secrets init -backend-config=../backend/backend.tfvars",
+    "secrets:plan": "pnpm secrets plan -var-file local.tfvars",
+    "secrets:apply": "pnpm secrets apply -var-file local.tfvars",
+    "secrets:destroy": "pnpm secrets destroy -var-file local.tfvars",
     "cf": "terraform -chdir=cf",
     "cf:init": "pnpm cf init -backe-var-file local.tfvarsnd-config=../backend/backend.tfvars",
     "cf:plan": "pnpm cf plan -var-file local.tfvars",
-    "cf:apply": "pnpm cf apply ",
+    "cf:apply": "pnpm cf apply -var-file local.tfvars",
     "cf:destroy": "pnpm cf destroy -var-file local.tfvars",
     "cf:tls": "terraform -chdir=cf-tls",
     "cf:tls:init": "pnpm cf:tls init -backend-config=../backend/backend.tfvars",
@@ -31,5 +50,11 @@
     "flux:apply": "pnpm flux apply -var-file local.tfvars",
     "flux:destroy": "pnpm flux destroy -var-file local.tfvars"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0"
+  },
+  "dependencies": {
+    "cdktf-cli": "^0.20.11"
+  }
 }

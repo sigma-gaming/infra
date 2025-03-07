@@ -1,11 +1,3 @@
-## Upload a custom image to DigitalOcean
-# resource "digitalocean_custom_image" "talos_custom_image" {
-#   name         = "talos-linux-${var.talos_version}"
-#   url          = local.final_image_url
-#   distribution = "Unknown"
-#   regions      = ["${var.do_region}"]
-# }
-
 ## Cheese the creation of an SSH key
 resource "tls_private_key" "fake_ssh_key" {
   algorithm = "RSA"
@@ -124,6 +116,9 @@ data "talos_machine_configuration" "machineconfig_cp" {
         }
       }
       "cluster" : {
+        "extraManifests" : [
+          "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/main/deploy/standalone-install.yaml"
+        ],
         "network" : {
           "cni" : {
             "name" : "flannel",
@@ -134,11 +129,11 @@ data "talos_machine_configuration" "machineconfig_cp" {
             }
           }
         }
-        "etcd" : {
-          "extraArgs" : {
-            "listen-metrics-urls" : "https://0.0.0.0:2379"
-          }
-        }
+        # "etcd" : {
+        #   "extraArgs" : {
+        #     "listen-metrics-urls" : "https://0.0.0.0:2379"
+        #   }
+        # }
         "controllerManager" : {
           "extraArgs" : {
             "bind-address" : "0.0.0.0"
@@ -224,17 +219,39 @@ resource "talos_cluster_kubeconfig" "kubeconfig" {
   node                 = digitalocean_droplet.talos_control_plane[0].ipv4_address
 }
 
-resource "kubernetes_secret" "etcd_tls_secret" {
-  count = var.create_etcd_tls_secret ? 1 : 0
-  metadata {
-    name      = "etcd-tls"
-    namespace = var.etcd_tls_secret_namespace
-  }
+# resource "kubernetes_namespace" "etcd_tls_secret" {
+#   count = var.create_etcd_tls_secret ? 1 : 0
+#   metadata {
+#     name = var.etcd_tls_secret_namespace
+#   }
 
-  type = "kubernetes.io/tls"
+#   lifecycle {
+#     prevent_destroy = true
+#   }
+# }
 
-  data = {
-    "tls.crt" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.cert)
-    "tls.key" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.key)
-  }
-}
+# resource "kubernetes_secret" "etcd_tls_secret" {
+#   count = var.create_etcd_tls_secret ? 1 : 0
+#   metadata {
+#     name      = "etcd-tls"
+#     namespace = kubernetes_namespace.etcd_tls_secret[0].metadata[0].name
+#   }
+
+#   type = "kubernetes.io/tls"
+
+#   data = {
+#     "tls.crt" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.cert)
+#     "tls.key" = base64decode(talos_machine_secrets.machine_secrets.machine_secrets.certs.etcd.key)
+#   }
+# }
+
+# resource "kubernetes_secret" "digitalocean" {
+#   metadata {
+#     name      = "digitalocean"
+#     namespace = "kube-system"
+#   }
+
+#   data = {
+#     "access-token" = var.do_token
+#   }
+# }

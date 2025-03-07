@@ -5,7 +5,6 @@ provider "registry.terraform.io/digitalocean/digitalocean" {
   version     = "2.28.0"
   constraints = "2.28.0"
   hashes = [
-    "h1:ElTF9nGpHdCTT3MAQ/gdGuneDx+EtiftwVQZCUtuyeY=",
     "h1:rOrqUXyIaVWVaM6FIt+97+GzolYcObzJDUzmUUVdM0g=",
     "zh:0b4e5e0bfff78c947be5d8b056cc9bd3a7589b6a3aad90fb2feb10d5143e04b8",
     "zh:14b4eda0a4314a1969203ff2c7f688c49a5758a9c0ceebf0bb694157865f3166",
@@ -26,30 +25,9 @@ provider "registry.terraform.io/digitalocean/digitalocean" {
   ]
 }
 
-provider "registry.terraform.io/hashicorp/kubernetes" {
-  version     = "2.35.1"
-  constraints = "2.35.1"
-  hashes = [
-    "h1:zgXeWvp4//Ry+4glwNrLMpPFOU8QBQlARNmR9WCNe9o=",
-    "zh:12212ca5ae47823ce14bfafb909eeb6861faf1e2435fb2fc4a8b334b3544b5f5",
-    "zh:3f49b3d77182df06b225ab266667de69681c2e75d296867eb2cf06a8f8db768c",
-    "zh:40832494d19f8a2b3cd0c18b80294d0b23ef6b82f6f6897b5fe00248a9997460",
-    "zh:739a5ddea61a77925ee7006a29c8717377a2e9d0a79a0bbd98738d92eec12c0d",
-    "zh:a02b472021753627c5c39447a56d125a32214c29ff9108fc499f2dcdf4f1cc4f",
-    "zh:b78865b3867065aa266d6758c9601a2756741478f5735a838c20d633d65e085b",
-    "zh:d362e87464683f5632790e66920ea803adb54c2bc0cb24b6fd9a314d2b1efffd",
-    "zh:d98206fe88c2c9a52b8d2d0cb2c877c812a4a51d19f9d8428e63cbd5fd8a304d",
-    "zh:dfa320946b1ce3f3615c42b3447a28dc9f604c06d8b9a6fe289855ab2ade4d11",
-    "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
-    "zh:fc1debd2e695b5222d2ccc8b24dab65baba4ee2418ecce944e64d42e79474cb5",
-    "zh:fdaf960443720a238c09e519aeb30faf74f027ac5d1e0a309c3b326888e031d7",
-  ]
-}
-
 provider "registry.terraform.io/hashicorp/tls" {
   version = "4.0.6"
   hashes = [
-    "h1:dYSb3V94K5dDMtrBRLPzBpkMTPn+3cXZ/kIJdtFL+2M=",
     "h1:n3M50qfWfRSpQV9Pwcvuse03pEizqrmYEryxKky4so4=",
     "zh:10de0d8af02f2e578101688fd334da3849f56ea91b0d9bd5b1f7a243417fdda8",
     "zh:37fc01f8b2bc9d5b055dc3e78bfd1beb7c42cfb776a4c81106e19c8911366297",
@@ -70,7 +48,6 @@ provider "registry.terraform.io/siderolabs/talos" {
   version     = "0.7.0"
   constraints = "0.7.0"
   hashes = [
-    "h1:1yCF9ScXtXPZFU7dDhwFvgJuvA68yz9VLTmVLnd5HAA=",
     "h1:H4d+Xq+6PBLng6QX9WUl2BCnKEPMNygoZSVuBMkLl+Y=",
     "zh:010555eadc96ea5bfd60813d9b248b8da6a6cb8c90fdfb7ed59580e35db73392",
     "zh:0fa82a384b25a58b65523e0ea4768fa1212b1f5cfc0c9379d31162454fedcc9d",

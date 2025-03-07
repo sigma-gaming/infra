@@ -70,18 +70,6 @@ variable "do_plan_application_worker_production" {
   default     = "s-4vcpu-8gb"
 }
 
-variable "create_etcd_tls_secret" {
-  description = "Whether to create the etcd TLS secret"
-  type        = bool
-  default     = false
-}
-
-variable "etcd_tls_secret_namespace" {
-  description = "Namespace to create the etcd TLS secret in"
-  type        = string
-  default     = "kube-system"
-}
-
 locals {
   num_workers       = var.num_service_workers + var.num_application_workers_production
   default_image_url = "https://github.com/siderolabs/talos/releases/download/${var.talos_version}/digital-ocean-amd64.raw.gz"

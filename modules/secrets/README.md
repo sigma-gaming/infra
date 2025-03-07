@@ -1,14 +1,14 @@
-# Cloudflare
+# Secrets
 
 ## Bootstrap with terraform
 
 ```bash
-pnpm cf:init
-pnpm cf:apply
+pnpm secrets:init
+pnpm secrets:apply
 ```
 
 ## Destroy with terraform
 
 ```bash
-pnpm cf:destroy
+pnpm secrets:destroy
 ```
