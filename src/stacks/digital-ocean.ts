@@ -2,12 +2,10 @@ import * as digitalocean from '@pulumi/digitalocean'
 import * as pulumi from '@pulumi/pulumi'
 import * as tls from '@pulumi/tls'
 import * as talos from '@pulumiverse/talos'
-import { KubeconfigOutput } from '../shared/k8s'
 import { ComponentOutputs } from '../shared/types'
 
 export type DigitalOceanStackConfig = {
   clusterName: string
-  doToken: pulumi.Input<string>
   doRegion: string
   numControlPlane: number
   numServiceWorkers: number
@@ -19,7 +17,7 @@ export type DigitalOceanStackConfig = {
 }
 
 export class DigitalOceanStack extends pulumi.ComponentResource {
-  public readonly kubeconfig: KubeconfigOutput
+  public readonly kubeconfig: pulumi.Output<string>
   public readonly talosConfig: pulumi.Output<string>
   public readonly clusterLb: digitalocean.LoadBalancer
   public readonly controlPlaneDroplets: digitalocean.Droplet[]
@@ -304,26 +302,21 @@ export class DigitalOceanStack extends pulumi.ComponentResource {
         clientConfiguration: secrets.clientConfiguration,
       },
       {
+        parent: this,
         dependsOn: applyList,
       },
     )
 
-    this.kubeconfig = pulumi
-      .all([
-        clusterEndpoint,
-        bootstrap.clientConfiguration.clientCertificate,
-        bootstrap.clientConfiguration.clientKey,
-        bootstrap.clientConfiguration.caCertificate,
-      ])
-      .apply(([host, clientCertificate, clientKey, caCertificate]) => {
-        return {
-          host,
-          clientCertificate,
-          clientKey,
-          caCertificate,
-        }
-      })
+    const kubeconfig = new talos.cluster.Kubeconfig(
+      'kubeconfig',
+      {
+        clientConfiguration: secrets.clientConfiguration,
+        node: controlPlaneDroplets[0].ipv4Address,
+      },
+      { parent: this, dependsOn: [bootstrap] },
+    )
 
+    this.kubeconfig = kubeconfig.kubeconfigRaw
     this.talosConfig = clientConfiguration.talosConfig
     this.clusterLb = clusterLb
     this.controlPlaneDroplets = controlPlaneDroplets
@@ -332,7 +325,7 @@ export class DigitalOceanStack extends pulumi.ComponentResource {
 
     this.registerOutputs({
       talosConfig: this.talosConfig,
-      kubeconfig: this.kubeconfig,
+      kubeconfig: kubeconfig.kubeconfigRaw,
       clusterLb: this.clusterLb,
       controlPlaneDroplets: this.controlPlaneDroplets,
       applicationWorkerProductionDroplets:
