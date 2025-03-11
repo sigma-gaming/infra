@@ -5,8 +5,8 @@ import { CloudflareProvider } from '@cdktf/provider-cloudflare/lib/provider'
 import { Ruleset } from '@cdktf/provider-cloudflare/lib/ruleset'
 import { TerraformStack } from 'cdktf'
 import { Construct } from 'constructs'
-import * as curl2 from '../../.gen/providers/curl2'
-import * as infisical from '../../.gen/providers/infisical'
+import * as curl2 from '../../../.gen/providers/curl2'
+import * as infisical from '../../../.gen/providers/infisical'
 import { configureGcsBackend } from '../shared/backend'
 
 export type CloudflareStackConfig = {

@@ -1,17 +1,13 @@
-import * as digitalocean from '@cdktf/provider-digitalocean'
-import { Droplet } from '@cdktf/provider-digitalocean/lib/droplet'
-import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer'
-import * as tls from '@cdktf/provider-tls'
-import { TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import * as talos from '../../.gen/providers/talos'
-import { ClusterKubeconfig } from '../../.gen/providers/talos/cluster-kubeconfig'
-import { DataTalosClientConfiguration } from '../../.gen/providers/talos/data-talos-client-configuration'
-import { configureGcsBackend } from '../shared/backend'
+import * as digitalocean from '@pulumi/digitalocean'
+import * as pulumi from '@pulumi/pulumi'
+import * as tls from '@pulumi/tls'
+import * as talos from '@pulumiverse/talos'
+import { KubeconfigOutput } from '../shared/k8s'
+import { ComponentOutputs } from '../shared/types'
 
 export type DigitalOceanStackConfig = {
   clusterName: string
-  doToken: string
+  doToken: pulumi.Input<string>
   doRegion: string
   numControlPlane: number
   numServiceWorkers: number
@@ -22,114 +18,118 @@ export type DigitalOceanStackConfig = {
   doPlanApplicationWorkerProduction: string
 }
 
-export class DigitalOceanStack extends TerraformStack {
-  talosConfig: DataTalosClientConfiguration
-  kubeconfig: ClusterKubeconfig
-  clusterLb: Loadbalancer
-  controlPlaneDroplets: Droplet[]
-  applicationWorkerProductionDroplets: Droplet[]
+export class DigitalOceanStack extends pulumi.ComponentResource {
+  public readonly kubeconfig: KubeconfigOutput
+  public readonly talosConfig: pulumi.Output<string>
+  public readonly clusterLb: digitalocean.LoadBalancer
+  public readonly controlPlaneDroplets: digitalocean.Droplet[]
+  public readonly applicationWorkerProductionDroplets: digitalocean.Droplet[]
 
-  constructor(scope: Construct, id: string, config: DigitalOceanStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+  constructor(
+    name: string,
+    config: DigitalOceanStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:DigitalOceanStack', name, {}, opts)
 
-    new digitalocean.provider.DigitaloceanProvider(this, 'digitalocean', {
-      token: config.doToken,
-    })
-
-    new tls.provider.TlsProvider(this, 'tls', {})
-
-    new talos.provider.TalosProvider(this, 'talos', {})
-
-    const fakeTlsKey = new tls.privateKey.PrivateKey(this, 'fake_tls_key', {
-      algorithm: 'RSA',
-      rsaBits: 4096,
-    })
-
-    const doSshKey = new digitalocean.sshKey.SshKey(this, 'fake_ssh_key', {
-      name: `${config.clusterName}-fake-ssh-key`,
-      publicKey: fakeTlsKey.publicKeyOpenssh,
-    })
-
-    const talosApplicationWorkersTag = new digitalocean.tag.Tag(
-      this,
-      'talos_application_workers_tag',
-      {
-        name: `${config.clusterName}-application-worker`,
-      },
+    const fakeTlsKey = new tls.PrivateKey(
+      'fake-tls-key',
+      { algorithm: 'RSA', rsaBits: 4096 },
+      { parent: this },
     )
 
-    const talosProductionTag = new digitalocean.tag.Tag(
-      this,
-      'talos_production_tag',
+    const doSshKey = new digitalocean.SshKey(
+      'fake-ssh-key',
       {
-        name: `${config.clusterName}-production`,
+        name: `${config.clusterName}-fake-ssh-key`,
+        publicKey: fakeTlsKey.publicKeyOpenssh,
       },
+      { parent: this },
     )
 
-    const talosServiceWorkersTag = new digitalocean.tag.Tag(
-      this,
-      'talos_service_workers_tag',
-      {
-        name: `${config.clusterName}-service-worker`,
-      },
+    const talosApplicationWorkersTag = new digitalocean.Tag(
+      'talos-application-workers-tag',
+      { name: `${config.clusterName}-application-worker` },
+      { parent: this },
     )
 
-    const talosControlPlane = []
+    const talosProductionTag = new digitalocean.Tag(
+      'talos-production-tag',
+      { name: `${config.clusterName}-production` },
+      { parent: this },
+    )
+
+    const talosServiceWorkersTag = new digitalocean.Tag(
+      'talos-service-workers-tag',
+      { name: `${config.clusterName}-service-worker` },
+      { parent: this },
+    )
+
+    const controlPlaneDroplets: digitalocean.Droplet[] = []
+
     for (let i = 0; i < config.numControlPlane; i++) {
-      talosControlPlane.push(
-        new digitalocean.droplet.Droplet(this, `talos_control_plane_${i}`, {
-          image: config.talosImageId,
-          name: `${config.clusterName}-control-plane-${i}`,
-          region: config.doRegion,
-          size: config.doPlanControlPlane,
-          sshKeys: [doSshKey.id],
-        }),
+      controlPlaneDroplets.push(
+        new digitalocean.Droplet(
+          `talos-control-plane-${i}`,
+          {
+            image: config.talosImageId,
+            name: `${config.clusterName}-control-plane-${i}`,
+            region: config.doRegion,
+            size: config.doPlanControlPlane,
+            sshKeys: [doSshKey.id],
+          },
+          { parent: this },
+        ),
       )
     }
 
-    const talosApplicationWorkersProduction = []
+    const applicationWorkerProductionDroplets: digitalocean.Droplet[] = []
+
     for (let i = 0; i < config.numApplicationWorkersProduction; i++) {
-      talosApplicationWorkersProduction.push(
-        new digitalocean.droplet.Droplet(
-          this,
-          `talos_application_worker_production_${i}`,
+      applicationWorkerProductionDroplets.push(
+        new digitalocean.Droplet(
+          `talos-application-worker-production-${i}`,
           {
             image: config.talosImageId,
             name: `${config.clusterName}-application-worker-${i}`,
             region: config.doRegion,
             size: config.doPlanApplicationWorkerProduction,
             sshKeys: [doSshKey.id],
-            tags: [talosApplicationWorkersTag.id, talosProductionTag.id],
+            tags: [talosApplicationWorkersTag.name, talosProductionTag.name],
           },
+          { parent: this },
         ),
       )
     }
 
     const talosServiceWorkers = []
+
     for (let i = 0; i < config.numServiceWorkers; i++) {
       talosServiceWorkers.push(
-        new digitalocean.droplet.Droplet(this, `talos_service_worker_${i}`, {
-          image: config.talosImageId,
-          name: `${config.clusterName}-service-worker-${i}`,
-          region: config.doRegion,
-          size: config.doPlanServiceWorker,
-          sshKeys: [doSshKey.id],
-          tags: [talosServiceWorkersTag.id],
-        }),
+        new digitalocean.Droplet(
+          `talos-service-worker-${i}`,
+          {
+            image: config.talosImageId,
+            name: `${config.clusterName}-service-worker-${i}`,
+            region: config.doRegion,
+            size: config.doPlanServiceWorker,
+            sshKeys: [doSshKey.id],
+            tags: [talosServiceWorkersTag.name],
+          },
+          { parent: this },
+        ),
       )
     }
 
-    const talosLb = new digitalocean.loadbalancer.Loadbalancer(
-      this,
-      'talos_lb',
+    const clusterLb = new digitalocean.LoadBalancer(
+      'talos-lb',
       {
         name: `${config.clusterName}-k8s`,
         region: config.doRegion,
-        dropletIds: talosControlPlane.map(
-          (droplet) => droplet.id as unknown as number,
-        ),
-        forwardingRule: [
+        dropletIds: pulumi
+          .all(controlPlaneDroplets.map((droplet) => droplet.id))
+          .apply((ids) => ids.map((id) => Number(id))),
+        forwardingRules: [
           {
             entryPort: 6443,
             entryProtocol: 'tcp',
@@ -155,39 +155,50 @@ export class DigitalOceanStack extends TerraformStack {
           protocol: 'tcp',
         },
       },
+      { parent: this },
     )
 
-    const machineSecrets = new talos.machineSecrets.MachineSecrets(
-      this,
-      'machine_secrets',
-      {},
+    const secrets = new talos.machine.Secrets('secrets', {}, { parent: this })
+
+    const clientConfiguration = talos.client.getConfigurationOutput(
+      {
+        clientConfiguration: secrets.clientConfiguration,
+        clusterName: config.clusterName,
+      },
+      { parent: this },
     )
 
-    const talosClientConfig =
-      new talos.dataTalosClientConfiguration.DataTalosClientConfiguration(
-        this,
-        'talosconfig',
-        {
-          clusterName: config.clusterName,
-          clientConfiguration: {
-            caCertificate: machineSecrets.clientConfiguration.caCertificate,
-            clientCertificate:
-              machineSecrets.clientConfiguration.clientCertificate,
-            clientKey: machineSecrets.clientConfiguration.clientKey,
-          },
-          endpoints: talosControlPlane.map((droplet) => droplet.ipv4Address),
-        },
-      )
+    const clusterEndpoint = pulumi.interpolate`https://${clusterLb.ip}:6443`
 
-    const machineConfigCp =
-      new talos.dataTalosMachineConfiguration.DataTalosMachineConfiguration(
-        this,
-        'machineconfig_cp',
+    const cpConfiguration = talos.machine.getConfigurationOutput(
+      {
+        clusterName: config.clusterName,
+        machineType: 'controlplane',
+        clusterEndpoint,
+        machineSecrets: secrets.machineSecrets,
+      },
+      { parent: this },
+    )
+
+    const workerConfiguration = talos.machine.getConfigurationOutput(
+      {
+        clusterName: config.clusterName,
+        machineType: 'worker',
+        clusterEndpoint,
+        machineSecrets: secrets.machineSecrets,
+      },
+      { parent: this },
+    )
+
+    const applyList: talos.machine.ConfigurationApply[] = []
+
+    for (const [i, node] of controlPlaneDroplets.entries()) {
+      const apply = new talos.machine.ConfigurationApply(
+        `control-plane-configuration-apply-${i}`,
         {
-          clusterName: config.clusterName,
-          clusterEndpoint: `https://${talosLb.ip}:6443`,
-          machineType: 'controlplane',
-          machineSecrets: machineSecrets.machineSecrets,
+          clientConfiguration: secrets.clientConfiguration,
+          machineConfigurationInput: cpConfiguration.machineConfiguration,
+          node: node.ipv4Address,
           configPatches: [
             JSON.stringify({
               machine: {
@@ -223,40 +234,19 @@ export class DigitalOceanStack extends TerraformStack {
             }),
           ],
         },
+        { parent: this },
       )
 
-    for (const [i, element] of talosControlPlane.entries()) {
-      new talos.machineConfigurationApply.MachineConfigurationApply(
-        this,
-        `cp_config_apply_${i}`,
-        {
-          clientConfiguration: machineSecrets.clientConfiguration,
-          machineConfigurationInput: machineConfigCp.machineConfiguration,
-          nodeAttribute: element.ipv4Address,
-        },
-      )
+      applyList.push(apply)
     }
 
-    const machineConfigWorker =
-      new talos.dataTalosMachineConfiguration.DataTalosMachineConfiguration(
-        this,
-        'machineconfig_worker',
+    for (const [i, node] of applicationWorkerProductionDroplets.entries()) {
+      const apply = new talos.machine.ConfigurationApply(
+        `application-worker-production-configuration-apply-${i}`,
         {
-          clusterName: config.clusterName,
-          clusterEndpoint: `https://${talosLb.ip}:6443`,
-          machineType: 'worker',
-          machineSecrets: machineSecrets.machineSecrets,
-        },
-      )
-
-    for (const [i, element] of talosApplicationWorkersProduction.entries()) {
-      new talos.machineConfigurationApply.MachineConfigurationApply(
-        this,
-        `application_worker_production_config_apply_${i}`,
-        {
-          clientConfiguration: machineSecrets.clientConfiguration,
-          machineConfigurationInput: machineConfigWorker.machineConfiguration,
-          nodeAttribute: element.ipv4Address,
+          clientConfiguration: secrets.clientConfiguration,
+          machineConfigurationInput: workerConfiguration.machineConfiguration,
+          node: node.ipv4Address,
           configPatches: [
             JSON.stringify({
               machine: {
@@ -273,17 +263,19 @@ export class DigitalOceanStack extends TerraformStack {
             }),
           ],
         },
+        { parent: this },
       )
+
+      applyList.push(apply)
     }
 
-    for (const [i, talosServiceWorker] of talosServiceWorkers.entries()) {
-      new talos.machineConfigurationApply.MachineConfigurationApply(
-        this,
-        `service_worker_config_apply_${i}`,
+    for (const [i, node] of talosServiceWorkers.entries()) {
+      const apply = new talos.machine.ConfigurationApply(
+        `service-worker-configuration-apply-${i}`,
         {
-          clientConfiguration: machineSecrets.clientConfiguration,
-          machineConfigurationInput: machineConfigWorker.machineConfiguration,
-          nodeAttribute: talosServiceWorker.ipv4Address,
+          clientConfiguration: secrets.clientConfiguration,
+          machineConfigurationInput: workerConfiguration.machineConfiguration,
+          node: node.ipv4Address,
           configPatches: [
             JSON.stringify({
               machine: {
@@ -299,32 +291,52 @@ export class DigitalOceanStack extends TerraformStack {
             }),
           ],
         },
+        { parent: this },
       )
+
+      applyList.push(apply)
     }
 
-    new talos.machineBootstrap.MachineBootstrap(this, 'bootstrap', {
-      clientConfiguration: machineSecrets.clientConfiguration,
-      nodeAttribute: talosControlPlane[0].ipv4Address,
-    })
-
-    const kubeconfigOutput = new talos.clusterKubeconfig.ClusterKubeconfig(
-      this,
-      'kubeconfig',
+    const bootstrap = new talos.machine.Bootstrap(
+      'bootstrap',
       {
-        clientConfiguration: {
-          caCertificate: machineSecrets.clientConfiguration.caCertificate,
-          clientCertificate:
-            machineSecrets.clientConfiguration.clientCertificate,
-          clientKey: machineSecrets.clientConfiguration.clientKey,
-        },
-        nodeAttribute: talosControlPlane[0].ipv4Address,
+        node: controlPlaneDroplets[0].ipv4Address,
+        clientConfiguration: secrets.clientConfiguration,
+      },
+      {
+        dependsOn: applyList,
       },
     )
 
-    this.talosConfig = talosClientConfig
-    this.kubeconfig = kubeconfigOutput
-    this.clusterLb = talosLb
-    this.controlPlaneDroplets = talosControlPlane
-    this.applicationWorkerProductionDroplets = talosApplicationWorkersProduction
+    this.kubeconfig = pulumi
+      .all([
+        clusterEndpoint,
+        bootstrap.clientConfiguration.clientCertificate,
+        bootstrap.clientConfiguration.clientKey,
+        bootstrap.clientConfiguration.caCertificate,
+      ])
+      .apply(([host, clientCertificate, clientKey, caCertificate]) => {
+        return {
+          host,
+          clientCertificate,
+          clientKey,
+          caCertificate,
+        }
+      })
+
+    this.talosConfig = clientConfiguration.talosConfig
+    this.clusterLb = clusterLb
+    this.controlPlaneDroplets = controlPlaneDroplets
+    this.applicationWorkerProductionDroplets =
+      applicationWorkerProductionDroplets
+
+    this.registerOutputs({
+      talosConfig: this.talosConfig,
+      kubeconfig: this.kubeconfig,
+      clusterLb: this.clusterLb,
+      controlPlaneDroplets: this.controlPlaneDroplets,
+      applicationWorkerProductionDroplets:
+        this.applicationWorkerProductionDroplets,
+    } satisfies ComponentOutputs<DigitalOceanStack>)
   }
 }

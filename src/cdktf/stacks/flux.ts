@@ -2,8 +2,8 @@ import { DataGithubRepository } from '@cdktf/provider-github/lib/data-github-rep
 import { GithubProvider } from '@cdktf/provider-github/lib/provider'
 import { TerraformStack } from 'cdktf'
 import { Construct } from 'constructs'
-import { BootstrapGit } from '../../.gen/providers/flux/bootstrap-git'
-import { FluxProvider } from '../../.gen/providers/flux/provider'
+import { BootstrapGit } from '../../../.gen/providers/flux/bootstrap-git'
+import { FluxProvider } from '../../../.gen/providers/flux/provider'
 import { configureGcsBackend } from '../shared/backend'
 import { K8sCredentials } from '../shared/k8s'
 

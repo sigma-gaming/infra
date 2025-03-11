@@ -1,21 +1,19 @@
 {
   "name": "infra",
   "version": "1.0.0",
+  "type": "module",
   "main": "main.js",
   "types": "main.ts",
   "license": "MPL-2.0",
   "private": true,
   "scripts": {
-    "get": "cdktf get",
-    "synth": "cdktf synth",
-    "output": "cdktf output",
-    "plan": "cdktf plan",
-    "apply": "cdktf apply",
-    "deploy": "cdktf deploy",
-    "watch": "tsx watch src/main.ts"
+    "deploy": "pulumi up",
+    "preview": "pulumi preview",
+    "destroy": "pulumi destroy",
+    "refresh": "pulumi refresh"
   },
   "engines": {
-    "node": ">=18.0"
+    "node": ">=20.0"
   },
   "dependencies": {
     "@cdktf/provider-cloudflare": "12.1.0",
@@ -25,6 +23,16 @@
     "@cdktf/provider-kubernetes": "11.11.0",
     "@cdktf/provider-random": "11.1.0",
     "@cdktf/provider-tls": "^10.0.1",
+    "@pulumi/cloudflare": "^5.49.1",
+    "@pulumi/digitalocean": "^4.40.1",
+    "@pulumi/gcp": "^8.21.0",
+    "@pulumi/github": "^6.7.0",
+    "@pulumi/kubernetes": "^4.21.1",
+    "@pulumi/pulumi": "^3.154.0",
+    "@pulumi/random": "^4.18.0",
+    "@pulumi/tls": "^5.1.0",
+    "@pulumiverse/talos": "^0.5.2",
+    "@worawat/flux": "^1.0.1",
     "cdktf": "^0.20.11",
     "change-case": "^5.4.4",
     "constructs": "^10.4.2",
