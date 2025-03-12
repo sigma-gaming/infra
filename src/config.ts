@@ -4,6 +4,7 @@ import { z } from 'zod'
 const EnvSchema = z.object({
   DIGITALOCEAN_TOKEN: z.string(),
   CLOUDFLARE_API_TOKEN: z.string(),
+  GITHUB_OWNER: z.string(),
   GITHUB_TOKEN: z.string(),
   INFISICAL_CLIENT_ID: z.string(),
   INFISICAL_CLIENT_SECRET: z.string(),

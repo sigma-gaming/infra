@@ -4,16 +4,19 @@ import {
   domainZoneIds,
   env,
 } from './config'
+import { fromBase64 } from './shared/base64'
 import { CloudflareStack } from './stacks/cloudflare'
 import { CloudflareTlsStack } from './stacks/cloudflare-tls'
 import { CommonSecretsStack } from './stacks/common-secrets'
-import { DigitalOceanStack } from './stacks/digital-ocean'
+import { DoTalosClusterStack } from './stacks/do-talos-cluster-stack'
+import { FluxStack } from './stacks/flux'
+import { FluxWebhookStack } from './stacks/flux-webhook'
 import { GcloudStack } from './stacks/gcloud'
 import { GcloudSecretsStack } from './stacks/gcloud-secrets'
 
 export = async () => {
-  const mainCluster = new DigitalOceanStack('main-cluster', {
-    clusterName: 'main-cluster',
+  const mainCluster = new DoTalosClusterStack('main-cluster', {
+    clusterName: 'main',
     doRegion: 'ams3',
     numControlPlane: 1,
     numServiceWorkers: 1,
@@ -33,6 +36,7 @@ export = async () => {
 
   const mainCloudflare = new CloudflareStack('main-cloudflare', {
     cloudflareAccountId: 'CF_ID_REMOVED',
+    cloudflareApiToken: env.CLOUDFLARE_API_TOKEN,
     clusterDomain: 'sigma-k8s.app',
     clusterName: 'main',
     clusterTargetIp: mainCluster.clusterLb.ip,
@@ -62,14 +66,18 @@ export = async () => {
 
   const registryRegion = 'europe-west4'
 
-  const gcloudStack = new GcloudStack('main-gcloud', {
-    googleProject: env.GOOGLE_PROJECT,
-    registryRegion,
-    backupsBucketName: 'sigma-backups',
-    backupsBucketRegion: 'eu',
-    backupsAccountName: 'backups',
-    cleanupAccountName: 'cleanup',
-  })
+  const gcloudStack = new GcloudStack(
+    'main-gcloud',
+    {
+      googleProject: env.GOOGLE_PROJECT,
+      registryRegion,
+      backupsBucketName: 'sigma-backups',
+      backupsBucketRegion: 'eu',
+      backupsAccountName: 'backups',
+      cleanupAccountName: 'cleanup',
+    },
+    { protect: true },
+  )
 
   new GcloudSecretsStack(
     'main-gcloud-secrets',
@@ -81,19 +89,38 @@ export = async () => {
       cleanupCredsSecretName: 'gcloud-cleanup-credentials',
       registryRegion,
       registryPullerEmail: gcloudStack.registryPuller.email,
-      registryKey: gcloudStack.registryKey.privateKey.apply((key) =>
-        Buffer.from(key, 'base64').toString('utf-8'),
-      ),
-      backupKey: gcloudStack.backupKey.privateKey.apply((key) =>
-        Buffer.from(key, 'base64').toString('utf-8'),
-      ),
-      cleanupKey: gcloudStack.cleanupKey.privateKey.apply((key) =>
-        Buffer.from(key, 'base64').toString('utf-8'),
-      ),
+      registryKey: gcloudStack.registryKey.privateKey.apply(fromBase64),
+      backupKey: gcloudStack.backupKey.privateKey.apply(fromBase64),
+      cleanupKey: gcloudStack.cleanupKey.privateKey.apply(fromBase64),
     },
     {
       dependsOn: [gcloudStack, mainCluster],
     },
+  )
+
+  const fluxStack = new FluxStack(
+    'main-flux',
+    {
+      k8sCredentials: mainCluster.k8sCredentials,
+      githubToken: env.GITHUB_TOKEN,
+      githubOrganization: env.GITHUB_OWNER,
+      githubRepository: 'k8s',
+      clusterName: 'main',
+    },
+    { dependsOn: mainCluster },
+  )
+
+  new FluxWebhookStack(
+    'main-flux-webhook',
+    {
+      kubeconfig: mainCluster.kubeconfig,
+      githubToken: env.GITHUB_TOKEN,
+      githubOrganization: env.GITHUB_OWNER,
+      githubRepository: 'k8s',
+      clusterDomain: 'sigma-k8s.app',
+      clusterName: 'main',
+    },
+    { dependsOn: [mainCluster, fluxStack] },
   )
 
   return {

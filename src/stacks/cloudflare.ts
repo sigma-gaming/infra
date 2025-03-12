@@ -1,9 +1,11 @@
+import * as infisical from '@ptfm/infisical'
 import * as cloudflare from '@pulumi/cloudflare'
-import * as infisical from '@pulumi/infisical'
 import * as pulumi from '@pulumi/pulumi'
+import { CloudflareEchSetting } from '../providers/cloudflare-ech'
 
 export type CloudflareStackConfig = {
   cloudflareAccountId: string
+  cloudflareApiToken: string
   clusterDomain: string
   clusterName: string
   clusterTargetIp: pulumi.Output<string>
@@ -11,7 +13,7 @@ export type CloudflareStackConfig = {
   domainZoneIds: Record<string, string>
   applicationPlanMap: Record<string, string>
   applicationSecurityLevelMap: Record<string, string>
-  applicationEnableEch: string
+  applicationEnableEch: 'on' | 'off'
   applicationTargetIps: pulumi.Output<string>[]
   infisicalEnvironment: string
   infisicalClientId: string
@@ -31,15 +33,19 @@ export class CloudflareStack extends pulumi.ComponentResource {
   ) {
     super('sigma:infrastructure:CloudflareStack', name, {}, opts)
 
-    const infisicalProvider = new infisical.Provider('infisical', {
-      host: 'https://eu.infisical.com',
-      auth: {
-        universal: {
-          clientId: config.infisicalClientId,
-          clientSecret: config.infisicalClientSecret,
+    const infisicalProvider = new infisical.Provider(
+      'infisical',
+      {
+        host: 'https://eu.infisical.com',
+        auth: {
+          universal: {
+            clientId: config.infisicalClientId,
+            clientSecret: config.infisicalClientSecret,
+          },
         },
       },
-    })
+      { parent: this },
+    )
 
     const clusterZone = cloudflare.getZoneOutput(
       { accountId: config.cloudflareAccountId, name: config.clusterDomain },
@@ -109,6 +115,16 @@ export class CloudflareStack extends pulumi.ComponentResource {
             securityLevel:
               config.applicationSecurityLevelMap[domain] || 'medium',
           },
+        },
+        { parent: this },
+      )
+
+      new CloudflareEchSetting(
+        `application_ech_setting_${domainKey(domain)}`,
+        {
+          zoneId: zone.zoneId,
+          apiToken: config.cloudflareApiToken,
+          value: config.applicationEnableEch,
         },
         { parent: this },
       )

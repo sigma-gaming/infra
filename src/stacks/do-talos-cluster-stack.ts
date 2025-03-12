@@ -2,9 +2,11 @@ import * as digitalocean from '@pulumi/digitalocean'
 import * as pulumi from '@pulumi/pulumi'
 import * as tls from '@pulumi/tls'
 import * as talos from '@pulumiverse/talos'
+import { fromBase64 } from '../shared/base64'
+import { K8sCredentialsOutput } from '../shared/k8s'
 import { ComponentOutputs } from '../shared/types'
 
-export type DigitalOceanStackConfig = {
+export type DoTalosClusterStackConfig = {
   clusterName: string
   doRegion: string
   numControlPlane: number
@@ -16,7 +18,8 @@ export type DigitalOceanStackConfig = {
   doPlanApplicationWorkerProduction: string
 }
 
-export class DigitalOceanStack extends pulumi.ComponentResource {
+export class DoTalosClusterStack extends pulumi.ComponentResource {
+  public readonly k8sCredentials: K8sCredentialsOutput
   public readonly kubeconfig: pulumi.Output<string>
   public readonly talosConfig: pulumi.Output<string>
   public readonly clusterLb: digitalocean.LoadBalancer
@@ -25,10 +28,10 @@ export class DigitalOceanStack extends pulumi.ComponentResource {
 
   constructor(
     name: string,
-    config: DigitalOceanStackConfig,
+    config: DoTalosClusterStackConfig,
     opts?: pulumi.ComponentResourceOptions,
   ) {
-    super('sigma:infrastructure:DigitalOceanStack', name, {}, opts)
+    super('sigma:infrastructure:DoTalosClusterStack', name, {}, opts)
 
     const fakeTlsKey = new tls.PrivateKey(
       'fake-tls-key',
@@ -316,6 +319,20 @@ export class DigitalOceanStack extends pulumi.ComponentResource {
       { parent: this, dependsOn: [bootstrap] },
     )
 
+    this.k8sCredentials = pulumi
+      .all([
+        kubeconfig.kubernetesClientConfiguration.host,
+        kubeconfig.kubernetesClientConfiguration.clientCertificate,
+        kubeconfig.kubernetesClientConfiguration.clientKey,
+        kubeconfig.kubernetesClientConfiguration.caCertificate,
+      ])
+      .apply(([host, clientCertificate, clientKey, caCertificate]) => ({
+        host,
+        clientCertificate: fromBase64(clientCertificate),
+        clientKey: fromBase64(clientKey),
+        clusterCaCertificate: fromBase64(caCertificate),
+      }))
+
     this.kubeconfig = kubeconfig.kubeconfigRaw
     this.talosConfig = clientConfiguration.talosConfig
     this.clusterLb = clusterLb
@@ -326,10 +343,11 @@ export class DigitalOceanStack extends pulumi.ComponentResource {
     this.registerOutputs({
       talosConfig: this.talosConfig,
       kubeconfig: kubeconfig.kubeconfigRaw,
+      k8sCredentials: this.k8sCredentials,
       clusterLb: this.clusterLb,
       controlPlaneDroplets: this.controlPlaneDroplets,
       applicationWorkerProductionDroplets:
         this.applicationWorkerProductionDroplets,
-    } satisfies ComponentOutputs<DigitalOceanStack>)
+    } satisfies ComponentOutputs<DoTalosClusterStack>)
   }
 }

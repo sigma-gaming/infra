@@ -29,7 +29,7 @@ export class CommonSecretsStack extends pulumi.ComponentResource {
           name: config.infisicalSecretsNamespace,
         },
       },
-      { provider: kubernetesProvider, parent: this },
+      { provider: kubernetesProvider, parent: this, retainOnDelete: true },
     )
 
     new kubernetes.core.v1.Secret(

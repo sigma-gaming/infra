@@ -1,5 +1,6 @@
 import * as kubernetes from '@pulumi/kubernetes'
 import * as pulumi from '@pulumi/pulumi'
+import { toBase64 } from '../shared/base64'
 import { ComponentOutputs } from '../shared/types'
 
 export type GcloudSecretsStackConfig = {
@@ -32,9 +33,7 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
 
     const k8sProvider = new kubernetes.Provider(
       'kubernetes',
-      {
-        kubeconfig: config.kubeconfig,
-      },
+      { kubeconfig: config.kubeconfig },
       { parent: this },
     )
 
@@ -45,7 +44,7 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
           name: config.googleCredsNamespace,
         },
       },
-      { provider: k8sProvider, parent: this },
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
     )
 
     this.registryCredsNamespace = new kubernetes.core.v1.Namespace(
@@ -55,7 +54,7 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
           name: config.registryCredsNamespace,
         },
       },
-      { provider: k8sProvider, parent: this },
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
     )
 
     const dockerConfigJson = pulumi
@@ -65,8 +64,8 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
         config.registryRegion,
       ])
       .apply(([key, email, region]) => {
-        const authStr = `_json_key:${key}`
-        const auth = Buffer.from(authStr).toString('base64')
+        const authString = `_json_key:${key}`
+        const auth = toBase64(authString)
 
         return JSON.stringify({
           auths: {

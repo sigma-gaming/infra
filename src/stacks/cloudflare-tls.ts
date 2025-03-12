@@ -30,7 +30,7 @@ export class CloudflareTlsStack extends pulumi.ComponentResource {
           name: 'cloudflare-tls',
         },
       },
-      { provider: k8sProvider, parent: this },
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
     )
 
     for (const domain of config.applicationDomains) {
