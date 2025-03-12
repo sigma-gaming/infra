@@ -1,86 +1,90 @@
-import { OriginCaCertificate } from '@cdktf/provider-cloudflare/lib/origin-ca-certificate'
-import { CloudflareProvider } from '@cdktf/provider-cloudflare/lib/provider'
-import { Namespace } from '@cdktf/provider-kubernetes/lib/namespace'
-import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider'
-import { Secret } from '@cdktf/provider-kubernetes/lib/secret'
-import { CertRequest } from '@cdktf/provider-tls/lib/cert-request'
-import { PrivateKey } from '@cdktf/provider-tls/lib/private-key'
-import { TlsProvider } from '@cdktf/provider-tls/lib/provider'
-import { TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import { configureGcsBackend } from '../shared/backend'
-import { K8sCredentials } from '../shared/k8s'
+import * as cloudflare from '@pulumi/cloudflare'
+import * as k8s from '@pulumi/kubernetes'
+import * as pulumi from '@pulumi/pulumi'
+import * as tls from '@pulumi/tls'
 
 export type CloudflareTlsStackConfig = {
-  cloudflareApiToken: string
   applicationDomains: string[]
   applicationOrganizationMap: Record<string, string>
-  k8s: K8sCredentials
+  kubeconfig: pulumi.Input<string>
 }
 
-export class CloudflareTlsStack extends TerraformStack {
-  constructor(scope: Construct, id: string, config: CloudflareTlsStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+export class CloudflareTlsStack extends pulumi.ComponentResource {
+  constructor(
+    name: string,
+    config: CloudflareTlsStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:CloudflareTlsStack', name, {}, opts)
 
-    new CloudflareProvider(this, 'cloudflare', {
-      apiToken: config.cloudflareApiToken,
-    })
+    const k8sProvider = new k8s.Provider(
+      'kubernetes',
+      { kubeconfig: config.kubeconfig },
+      { parent: this },
+    )
 
-    new TlsProvider(this, 'tls', {})
-    new KubernetesProvider(this, 'kubernetes', config.k8s)
-
-    const namespace = new Namespace(this, 'application_tls_namespace', {
-      metadata: {
-        name: 'cloudflare-tls',
+    const namespace = new k8s.core.v1.Namespace(
+      'application_tls_namespace',
+      {
+        metadata: {
+          name: 'cloudflare-tls',
+        },
       },
-    })
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
+    )
 
     for (const domain of config.applicationDomains) {
       const domainKey = domain.replace(/\./g, '_')
 
-      const tlsPrivateKeys = new PrivateKey(
-        this,
+      const tlsPrivateKey = new tls.PrivateKey(
         `application_tls_key_${domainKey}`,
-        { algorithm: 'RSA' },
+        {
+          algorithm: 'RSA',
+          rsaBits: 2048,
+        },
+        { parent: this },
       )
 
-      const tlsCertRequests = new CertRequest(
-        this,
+      const tlsCertRequest = new tls.CertRequest(
         `application_tls_request_${domainKey}`,
         {
-          privateKeyPem: tlsPrivateKeys.privateKeyPem,
-          subject: [
-            {
-              commonName: '',
-              organization: config.applicationOrganizationMap[domain],
-            },
-          ],
+          privateKeyPem: tlsPrivateKey.privateKeyPem,
+          subject: {
+            commonName: '',
+            organization: config.applicationOrganizationMap[domain],
+          },
         },
+        { parent: this },
       )
 
-      const originCaCertificates = new OriginCaCertificate(
-        this,
+      const originCaCertificate = new cloudflare.OriginCaCertificate(
         `application_cert_${domainKey}`,
         {
-          csr: tlsCertRequests.certRequestPem,
+          csr: tlsCertRequest.certRequestPem,
           hostnames: [domain, `*.${domain}`],
-          requestedValidity: 5475,
+          requestedValidity: 5475, /// 15 years in days
           requestType: 'origin-rsa',
         },
+        { parent: this },
       )
 
-      new Secret(this, `application_tls_secret_${domainKey}`, {
-        metadata: {
-          name: `${domain}-cloudflare-tls`,
-          namespace: namespace.metadata.name,
+      new k8s.core.v1.Secret(
+        `application_tls_secret_${domainKey}`,
+        {
+          metadata: {
+            name: `${domain}-cloudflare-tls`,
+            namespace: namespace.metadata.name,
+          },
+          type: 'kubernetes.io/tls',
+          stringData: {
+            'tls.crt': originCaCertificate.certificate,
+            'tls.key': tlsPrivateKey.privateKeyPem,
+          },
         },
-        type: 'kubernetes.io/tls',
-        data: {
-          'tls.crt': originCaCertificates.certificate,
-          'tls.key': tlsPrivateKeys.privateKeyPem,
-        },
-      })
+        { provider: k8sProvider, parent: this, dependsOn: [namespace] },
+      )
     }
+
+    this.registerOutputs()
   }
 }

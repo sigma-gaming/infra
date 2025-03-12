@@ -1,110 +1,150 @@
-import { Namespace } from '@cdktf/provider-kubernetes/lib/namespace'
-import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider'
-import { Secret } from '@cdktf/provider-kubernetes/lib/secret'
-import { ServiceAccount } from '@cdktf/provider-kubernetes/lib/service-account'
-import { Fn, TerraformLocal, TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import { configureGcsBackend } from '../shared/backend'
-import { K8sCredentials } from '../shared/k8s'
+import * as kubernetes from '@pulumi/kubernetes'
+import * as pulumi from '@pulumi/pulumi'
+import { toBase64 } from '../shared/base64'
+import { ComponentOutputs } from '../shared/types'
 
 export type GcloudSecretsStackConfig = {
-  k8s: K8sCredentials
+  kubeconfig: pulumi.Input<string>
   googleCredsNamespace: string
   registryCredsNamespace: string
   backupsCredentialsSecretName: string
   cleanupCredsSecretName: string
   registryRegion: string
-  registryPullerEmail: string
-  registryKey: string
-  backupKey: string
-  cleanupKey: string
+  registryPullerEmail: pulumi.Input<string>
+  registryKey: pulumi.Input<string>
+  backupKey: pulumi.Input<string>
+  cleanupKey: pulumi.Input<string>
 }
 
-export class GcloudSecretsStack extends TerraformStack {
-  public readonly googleCredsNamespace: Namespace
-  public readonly registryCredsNamespace: Namespace
-  public readonly registryCredentials: Secret
-  public readonly registryPuller: ServiceAccount
-  public readonly backupCredentials: Secret
-  public readonly cleanupCredentials: Secret
+export class GcloudSecretsStack extends pulumi.ComponentResource {
+  public readonly googleCredsNamespace: kubernetes.core.v1.Namespace
+  public readonly registryCredsNamespace: kubernetes.core.v1.Namespace
+  public readonly registryCredentials: kubernetes.core.v1.Secret
+  public readonly registryPuller: kubernetes.core.v1.ServiceAccount
+  public readonly backupCredentials: kubernetes.core.v1.Secret
+  public readonly cleanupCredentials: kubernetes.core.v1.Secret
 
-  constructor(scope: Construct, id: string, config: GcloudSecretsStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+  constructor(
+    name: string,
+    config: GcloudSecretsStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:GcloudSecretsStack', name, {}, opts)
 
-    new KubernetesProvider(this, 'kubernetes', config.k8s)
-
-    this.googleCredsNamespace = new Namespace(this, 'google_creds', {
-      metadata: {
-        name: config.googleCredsNamespace,
-      },
-    })
-
-    this.registryCredsNamespace = new Namespace(this, 'registry_creds', {
-      metadata: {
-        name: config.registryCredsNamespace,
-      },
-    })
-
-    const dockerConfigJson = new TerraformLocal(
-      this,
-      'docker_config_json',
-      Fn.jsonencode({
-        auths: {
-          [`${config.registryRegion}-docker.pkg.dev`]: {
-            username: '_json_key',
-            password: config.registryKey,
-            email: config.registryPullerEmail,
-            auth: Fn.base64encode(
-              Fn.join(':', ['_json_key', config.registryKey]),
-            ),
-          },
-        },
-      }),
+    const k8sProvider = new kubernetes.Provider(
+      'kubernetes',
+      { kubeconfig: config.kubeconfig },
+      { parent: this },
     )
 
-    this.registryCredentials = new Secret(this, 'registry_credentials', {
-      metadata: {
-        name: 'google-registry-creds',
-        namespace: this.registryCredsNamespace.metadata.name,
-      },
-      type: 'kubernetes.io/dockerconfigjson',
-      data: { '.dockerconfigjson': dockerConfigJson.expression },
-    })
-
-    this.registryPuller = new ServiceAccount(this, 'registry_puller', {
-      metadata: {
-        name: 'google-registry-puller',
-        namespace: this.registryCredsNamespace.metadata.name,
-      },
-
-      imagePullSecret: [
-        {
-          name: this.registryCredentials.metadata.name,
+    this.googleCredsNamespace = new kubernetes.core.v1.Namespace(
+      'google-creds',
+      {
+        metadata: {
+          name: config.googleCredsNamespace,
         },
-      ],
-    })
-
-    this.backupCredentials = new Secret(this, 'backup_credentials', {
-      metadata: {
-        name: config.backupsCredentialsSecretName,
-        namespace: this.googleCredsNamespace.metadata.name,
       },
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
+    )
 
-      data: {
-        key: config.backupKey,
+    this.registryCredsNamespace = new kubernetes.core.v1.Namespace(
+      'registry-creds',
+      {
+        metadata: {
+          name: config.registryCredsNamespace,
+        },
       },
-    })
+      { provider: k8sProvider, parent: this, retainOnDelete: true },
+    )
 
-    this.cleanupCredentials = new Secret(this, 'cleanup_credentials', {
-      metadata: {
-        name: config.cleanupCredsSecretName,
-        namespace: this.googleCredsNamespace.metadata.name,
-      },
+    const dockerConfigJson = pulumi
+      .all([
+        config.registryKey,
+        config.registryPullerEmail,
+        config.registryRegion,
+      ])
+      .apply(([key, email, region]) => {
+        const authString = `_json_key:${key}`
+        const auth = toBase64(authString)
 
-      data: {
-        key: config.cleanupKey,
+        return JSON.stringify({
+          auths: {
+            [`${region}-docker.pkg.dev`]: {
+              username: '_json_key',
+              password: key,
+              email,
+              auth,
+            },
+          },
+        })
+      })
+
+    this.registryCredentials = new kubernetes.core.v1.Secret(
+      'registry-credentials',
+      {
+        metadata: {
+          name: 'google-registry-creds',
+          namespace: this.registryCredsNamespace.metadata.name,
+        },
+        type: 'kubernetes.io/dockerconfigjson',
+        stringData: {
+          '.dockerconfigjson': dockerConfigJson,
+        },
       },
-    })
+      { provider: k8sProvider, parent: this },
+    )
+
+    this.registryPuller = new kubernetes.core.v1.ServiceAccount(
+      'registry-puller',
+      {
+        metadata: {
+          name: 'google-registry-puller',
+          namespace: this.registryCredsNamespace.metadata.name,
+        },
+        imagePullSecrets: [
+          {
+            name: this.registryCredentials.metadata.name,
+          },
+        ],
+      },
+      { provider: k8sProvider, parent: this },
+    )
+
+    this.backupCredentials = new kubernetes.core.v1.Secret(
+      'backup-credentials',
+      {
+        metadata: {
+          name: config.backupsCredentialsSecretName,
+          namespace: this.googleCredsNamespace.metadata.name,
+        },
+        stringData: {
+          key: config.backupKey,
+        },
+      },
+      { provider: k8sProvider, parent: this },
+    )
+
+    this.cleanupCredentials = new kubernetes.core.v1.Secret(
+      'cleanup-credentials',
+      {
+        metadata: {
+          name: config.cleanupCredsSecretName,
+          namespace: this.googleCredsNamespace.metadata.name,
+        },
+        stringData: {
+          key: config.cleanupKey,
+        },
+      },
+      { provider: k8sProvider, parent: this },
+    )
+
+    this.registerOutputs({
+      googleCredsNamespace: this.googleCredsNamespace,
+      registryCredsNamespace: this.registryCredsNamespace,
+      registryCredentials: this.registryCredentials,
+      registryPuller: this.registryPuller,
+      backupCredentials: this.backupCredentials,
+      cleanupCredentials: this.cleanupCredentials,
+    } satisfies ComponentOutputs<GcloudSecretsStack>)
   }
 }

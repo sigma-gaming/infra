@@ -1,0 +1,7 @@
+name: sigma
+description: Sigma infrastructure managed with Pulumi
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    nodeargs: "--import tsx"

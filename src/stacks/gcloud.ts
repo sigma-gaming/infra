@@ -1,14 +1,6 @@
-import { ArtifactRegistryRepository } from '@cdktf/provider-google/lib/artifact-registry-repository'
-import { ArtifactRegistryRepositoryIamMember } from '@cdktf/provider-google/lib/artifact-registry-repository-iam-member'
-import { ProjectIamCustomRole } from '@cdktf/provider-google/lib/project-iam-custom-role'
-import { GoogleProvider } from '@cdktf/provider-google/lib/provider'
-import { ServiceAccount } from '@cdktf/provider-google/lib/service-account'
-import { ServiceAccountKey } from '@cdktf/provider-google/lib/service-account-key'
-import { StorageBucket } from '@cdktf/provider-google/lib/storage-bucket'
-import { StorageBucketIamMember } from '@cdktf/provider-google/lib/storage-bucket-iam-member'
-import { TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import { configureGcsBackend } from '../shared/backend'
+import * as gcp from '@pulumi/gcp'
+import * as pulumi from '@pulumi/pulumi'
+import { ComponentOutputs } from '../shared/types'
 
 export type GcloudStackConfig = {
   googleProject: string
@@ -19,64 +11,78 @@ export type GcloudStackConfig = {
   cleanupAccountName: string
 }
 
-export class GcloudStack extends TerraformStack {
-  public readonly dockerRegistry: ArtifactRegistryRepository
-  public readonly backupsBucket: StorageBucket
-  public readonly registryPuller: ServiceAccount
-  public readonly backupAccount: ServiceAccount
-  public readonly cleanupAccount: ServiceAccount
-  public readonly registryKey: ServiceAccountKey
-  public readonly backupKey: ServiceAccountKey
-  public readonly cleanupKey: ServiceAccountKey
+export class GcloudStack extends pulumi.ComponentResource {
+  public readonly dockerRegistry: gcp.artifactregistry.Repository
+  public readonly backupsBucket: gcp.storage.Bucket
+  public readonly registryPuller: gcp.serviceaccount.Account
+  public readonly backupAccount: gcp.serviceaccount.Account
+  public readonly cleanupAccount: gcp.serviceaccount.Account
+  public readonly registryKey: gcp.serviceaccount.Key
+  public readonly backupKey: gcp.serviceaccount.Key
+  public readonly cleanupKey: gcp.serviceaccount.Key
 
-  constructor(scope: Construct, id: string, config: GcloudStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+  constructor(
+    name: string,
+    config: GcloudStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:GcloudStack', name, {}, opts)
 
-    new GoogleProvider(this, 'google', {
-      project: config.googleProject,
-    })
-
-    this.dockerRegistry = new ArtifactRegistryRepository(
-      this,
-      'docker_registry',
+    this.dockerRegistry = new gcp.artifactregistry.Repository(
+      'docker-registry',
       {
         location: config.registryRegion,
         repositoryId: 'docker',
         description: 'Docker container registry',
         format: 'DOCKER',
       },
+      { parent: this },
     )
 
-    this.backupsBucket = new StorageBucket(this, 'backups', {
-      name: config.backupsBucketName,
-      location: config.backupsBucketRegion,
-      forceDestroy: false,
-      storageClass: 'COLDLINE',
-      uniformBucketLevelAccess: true,
-      publicAccessPrevention: 'enforced',
-    })
+    this.backupsBucket = new gcp.storage.Bucket(
+      'backups',
+      {
+        name: config.backupsBucketName,
+        location: config.backupsBucketRegion,
+        forceDestroy: false,
+        storageClass: 'COLDLINE',
+        uniformBucketLevelAccess: true,
+        publicAccessPrevention: 'enforced',
+      },
+      { parent: this },
+    )
 
-    this.registryPuller = new ServiceAccount(this, 'registry_puller', {
-      accountId: 'registry-puller',
-      displayName: 'Service Account for pulling from Artifact Registry',
-    })
+    this.registryPuller = new gcp.serviceaccount.Account(
+      'registry-puller',
+      {
+        accountId: 'registry-puller',
+        displayName: 'Service Account for pulling from Artifact Registry',
+      },
+      { parent: this },
+    )
 
-    new ArtifactRegistryRepositoryIamMember(this, 'registry_reader', {
-      location: this.dockerRegistry.location,
-      repository: this.dockerRegistry.name,
-      role: 'roles/artifactregistry.reader',
-      member: `serviceAccount:${this.registryPuller.email}`,
-    })
+    new gcp.artifactregistry.RepositoryIamMember(
+      'registry-reader',
+      {
+        location: this.dockerRegistry.location,
+        repository: this.dockerRegistry.name,
+        role: 'roles/artifactregistry.reader',
+        member: pulumi.interpolate`serviceAccount:${this.registryPuller.email}`,
+      },
+      { parent: this },
+    )
 
-    this.backupAccount = new ServiceAccount(this, 'backup_account', {
-      accountId: config.backupsAccountName,
-      displayName: 'Service Account for backup bucket access',
-    })
+    this.backupAccount = new gcp.serviceaccount.Account(
+      'backup-account',
+      {
+        accountId: config.backupsAccountName,
+        displayName: 'Service Account for backup bucket access',
+      },
+      { parent: this },
+    )
 
-    const backupAdminRole = new ProjectIamCustomRole(
-      this,
-      'backup_admin_role',
+    const backupAdminRole = new gcp.projects.IAMCustomRole(
+      'backup-admin-role',
       {
         roleId: 'backupAdmin',
         title: 'Backup Admin',
@@ -96,22 +102,30 @@ export class GcloudStack extends TerraformStack {
           'storage.multipartUploads.listParts',
         ],
       },
+      { parent: this },
     )
 
-    new StorageBucketIamMember(this, 'backup_admin_role_binding', {
-      bucket: this.backupsBucket.name,
-      role: backupAdminRole.id,
-      member: `serviceAccount:${this.backupAccount.email}`,
-    })
+    new gcp.storage.BucketIAMMember(
+      'backup-admin-role-binding',
+      {
+        bucket: this.backupsBucket.name,
+        role: backupAdminRole.id,
+        member: pulumi.interpolate`serviceAccount:${this.backupAccount.email}`,
+      },
+      { parent: this },
+    )
 
-    this.cleanupAccount = new ServiceAccount(this, 'cleanup_account', {
-      accountId: config.cleanupAccountName,
-      displayName: 'Service Account for cleanup',
-    })
+    this.cleanupAccount = new gcp.serviceaccount.Account(
+      'cleanup-account',
+      {
+        accountId: config.cleanupAccountName,
+        displayName: 'Service Account for cleanup',
+      },
+      { parent: this },
+    )
 
-    const cleanupAdminRole = new ProjectIamCustomRole(
-      this,
-      'cleanup_admin_role',
+    const cleanupAdminRole = new gcp.projects.IAMCustomRole(
+      'cleanup-admin-role',
       {
         roleId: 'cleanupAdmin',
         title: 'Cleanup Admin',
@@ -131,29 +145,53 @@ export class GcloudStack extends TerraformStack {
           'artifactregistry.versions.get',
         ],
       },
+      { parent: this },
     )
 
-    new ArtifactRegistryRepositoryIamMember(
-      this,
-      'cleanup_admin_role_binding',
+    new gcp.artifactregistry.RepositoryIamMember(
+      'cleanup-admin-role-binding',
       {
         location: this.dockerRegistry.location,
         repository: this.dockerRegistry.name,
         role: cleanupAdminRole.id,
-        member: `serviceAccount:${this.cleanupAccount.email}`,
+        member: pulumi.interpolate`serviceAccount:${this.cleanupAccount.email}`,
       },
+      { parent: this },
     )
 
-    this.registryKey = new ServiceAccountKey(this, 'registry_key', {
-      serviceAccountId: this.registryPuller.name,
-    })
+    this.registryKey = new gcp.serviceaccount.Key(
+      'registry-key',
+      {
+        serviceAccountId: this.registryPuller.name,
+      },
+      { parent: this },
+    )
 
-    this.backupKey = new ServiceAccountKey(this, 'backup_key', {
-      serviceAccountId: this.backupAccount.name,
-    })
+    this.backupKey = new gcp.serviceaccount.Key(
+      'backup-key',
+      {
+        serviceAccountId: this.backupAccount.name,
+      },
+      { parent: this },
+    )
 
-    this.cleanupKey = new ServiceAccountKey(this, 'cleanup_key', {
-      serviceAccountId: this.cleanupAccount.name,
-    })
+    this.cleanupKey = new gcp.serviceaccount.Key(
+      'cleanup-key',
+      {
+        serviceAccountId: this.cleanupAccount.name,
+      },
+      { parent: this },
+    )
+
+    this.registerOutputs({
+      dockerRegistry: this.dockerRegistry,
+      backupsBucket: this.backupsBucket,
+      registryPuller: this.registryPuller,
+      backupAccount: this.backupAccount,
+      cleanupAccount: this.cleanupAccount,
+      registryKey: this.registryKey,
+      backupKey: this.backupKey,
+      cleanupKey: this.cleanupKey,
+    } satisfies ComponentOutputs<GcloudStack>)
   }
 }

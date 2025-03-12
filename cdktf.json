@@ -1,9 +1,0 @@
-{
-  "language": "typescript",
-  "app": "pnpm tsx src/main.ts",
-  "projectId": "cee3e9c1-6edb-4cef-b398-8930e7afbff4",
-  "sendCrashReports": "false",
-  "terraformProviders": ["siderolabs/talos@0.7.1", "Infisical/infisical@0.14.2", "mehulgohil/curl2@1.6.1", "fluxcd/flux@1.4.0"],
-  "terraformModules": [],
-  "context": {}
-}

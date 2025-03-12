@@ -1,61 +1,50 @@
-import { DataGithubRepository } from '@cdktf/provider-github/lib/data-github-repository'
-import { GithubProvider } from '@cdktf/provider-github/lib/provider'
-import { TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import { BootstrapGit } from '../../.gen/providers/flux/bootstrap-git'
-import { FluxProvider } from '../../.gen/providers/flux/provider'
-import { configureGcsBackend } from '../shared/backend'
-import { K8sCredentials } from '../shared/k8s'
+import * as flux from '@ptfm/flux'
+import * as pulumi from '@pulumi/pulumi'
+import { K8sCredentialsOutput } from '../shared/k8s'
 
 export type FluxStackConfig = {
-  k8s: K8sCredentials
+  k8sCredentials: K8sCredentialsOutput
   githubToken: string
   githubOrganization: string
   githubRepository: string
   clusterName: string
 }
 
-export class FluxStack extends TerraformStack {
-  constructor(scope: Construct, id: string, config: FluxStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+export class FluxStack extends pulumi.ComponentResource {
+  constructor(
+    name: string,
+    config: FluxStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:FluxStack', name, {}, opts)
 
-    // Configure GitHub provider
-    new GithubProvider(this, 'github', {
-      token: config.githubToken,
-    })
-
-    // Configure Flux provider with Kubernetes credentials
-    new FluxProvider(this, 'flux', {
-      kubernetes: {
-        host: config.k8s.host,
-        clientCertificate: config.k8s.clientCertificate,
-        clientKey: config.k8s.clientKey,
-        clusterCaCertificate: config.k8s.caCertificate,
-      },
-      git: {
-        url: `https://github.com/${config.githubOrganization}/${config.githubRepository}`,
-        http: {
-          username: 'terraform',
-          password: config.githubToken,
+    const fluxProvider = new flux.Provider(
+      'flux',
+      {
+        kubernetes: config.k8sCredentials,
+        git: {
+          url: `https://github.com/${config.githubOrganization}/${config.githubRepository}`,
+          http: {
+            username: 'terraform',
+            password: config.githubToken,
+          },
         },
       },
-    })
+      { parent: this },
+    )
 
-    // Get GitHub repository
-    const repository = new DataGithubRepository(this, 'flux_repository', {
-      name: `${config.githubOrganization}/${config.githubRepository}`,
-    })
+    new flux.BootstrapGit(
+      'flux-bootstrap',
+      {
+        path: `clusters/${config.clusterName}`,
+        componentsExtras: [
+          'image-reflector-controller',
+          'image-automation-controller',
+        ],
+      },
+      { provider: fluxProvider, parent: this },
+    )
 
-    // Bootstrap Flux
-    new BootstrapGit(this, 'flux_bootstrap', {
-      dependsOn: [repository],
-      path: `clusters/${config.clusterName}`,
-      componentsExtra: [
-        'image-reflector-controller',
-        'image-automation-controller',
-      ],
-      deleteGitManifests: false,
-    })
+    this.registerOutputs()
   }
 }

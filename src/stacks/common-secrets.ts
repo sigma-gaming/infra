@@ -1,51 +1,65 @@
-import { Namespace } from '@cdktf/provider-kubernetes/lib/namespace'
-import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider'
-import { Secret } from '@cdktf/provider-kubernetes/lib/secret'
-import { TerraformStack } from 'cdktf'
-import { Construct } from 'constructs'
-import { configureGcsBackend } from '../shared/backend'
-import { K8sCredentials } from '../shared/k8s'
+import * as kubernetes from '@pulumi/kubernetes'
+import * as pulumi from '@pulumi/pulumi'
 
 export type CommonSecretsStackConfig = {
-  k8s: K8sCredentials
+  kubeconfig: pulumi.Input<string>
   infisicalSecretsNamespace: string
   infisicalProductionServiceToken: string
   doToken: string
 }
 
-export class CommonSecretsStack extends TerraformStack {
-  constructor(scope: Construct, id: string, config: CommonSecretsStackConfig) {
-    super(scope, id)
-    configureGcsBackend(this, id)
+export class CommonSecretsStack extends pulumi.ComponentResource {
+  constructor(
+    name: string,
+    config: CommonSecretsStackConfig,
+    opts?: pulumi.ComponentResourceOptions,
+  ) {
+    super('sigma:infrastructure:CommonSecretsStack', name, {}, opts)
 
-    new KubernetesProvider(this, 'kubernetes', config.k8s)
+    const kubernetesProvider = new kubernetes.Provider(
+      'kubernetes',
+      { kubeconfig: config.kubeconfig },
+      { parent: this },
+    )
 
-    const infisicalSecretsNamespace = new Namespace(this, 'infisical_secrets', {
-      metadata: {
-        name: config.infisicalSecretsNamespace,
+    const infisicalSecretsNamespace = new kubernetes.core.v1.Namespace(
+      'infisical-secrets',
+      {
+        metadata: {
+          name: config.infisicalSecretsNamespace,
+        },
       },
-    })
+      { provider: kubernetesProvider, parent: this, retainOnDelete: true },
+    )
 
-    new Secret(this, 'infisical_production_service_token', {
-      metadata: {
-        name: 'infisical-service-token-production',
-        namespace: infisicalSecretsNamespace.metadata.name,
+    new kubernetes.core.v1.Secret(
+      'infisical-production-service-token',
+      {
+        metadata: {
+          name: 'infisical-service-token-production',
+          namespace: infisicalSecretsNamespace.metadata.name,
+        },
+        stringData: {
+          infisicalToken: config.infisicalProductionServiceToken,
+        },
       },
+      { provider: kubernetesProvider, parent: this },
+    )
 
-      data: {
-        infisicalToken: config.infisicalProductionServiceToken,
+    new kubernetes.core.v1.Secret(
+      'digitalocean',
+      {
+        metadata: {
+          name: 'digitalocean',
+          namespace: 'kube-system',
+        },
+        stringData: {
+          'access-token': config.doToken,
+        },
       },
-    })
+      { provider: kubernetesProvider, parent: this },
+    )
 
-    new Secret(this, 'digitalocean', {
-      metadata: {
-        name: 'digitalocean',
-        namespace: 'kube-system',
-      },
-
-      data: {
-        'access-token': config.doToken,
-      },
-    })
+    this.registerOutputs()
   }
 }

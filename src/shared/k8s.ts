@@ -1,7 +1,8 @@
-export type K8sCredentials = {
+import * as pulumi from '@pulumi/pulumi'
+
+export type K8sCredentialsOutput = pulumi.Output<{
   host: string
   clientCertificate: string
   clientKey: string
-  caCertificate: string
-  insecure?: boolean
-}
+  clusterCaCertificate: string
+}>
