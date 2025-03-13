@@ -59,7 +59,7 @@ export class CloudflareStack extends pulumi.ComponentResource {
         settings: {
           alwaysUseHttps: 'on',
           automaticHttpsRewrites: 'on',
-          ssl: 'flexible',
+          ssl: 'full',
         },
       },
       { parent: this },
