@@ -81,7 +81,7 @@ export = async () => {
       kubeconfig: mainCluster.kubeconfig,
       googleCredsNamespace: 'google-creds',
       registryCredsNamespace: 'registry-creds',
-      backupsCredentialsSecretName: 'gcloud-backups-credentials',
+      backupsCredentialsSecretName: 'production-backups-creds',
       registryRegion,
       registryPullerEmail: gcloudStack.registryPuller.email,
       registryKey: gcloudStack.registryKey.privateKey.apply(fromBase64),
