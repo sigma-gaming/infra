@@ -4,12 +4,12 @@ import {
   domainZoneIds,
   env,
 } from './config'
+import { FluxBootstrap } from './resources/flux-bootstrap'
 import { fromBase64 } from './shared/base64'
 import { CloudflareStack } from './stacks/cloudflare'
 import { CloudflareTlsStack } from './stacks/cloudflare-tls'
 import { CommonSecretsStack } from './stacks/common-secrets'
 import { DoTalosClusterStack } from './stacks/do-talos-cluster-stack'
-import { FluxStack } from './stacks/flux'
 import { FluxWebhookStack } from './stacks/flux-webhook'
 import { GcloudStack } from './stacks/gcloud'
 import { GcloudSecretsStack } from './stacks/gcloud-secrets'
@@ -66,18 +66,14 @@ export = async () => {
 
   const registryRegion = 'europe-west4'
 
-  const gcloudStack = new GcloudStack(
-    'main-gcloud',
-    {
-      googleProject: env.GOOGLE_PROJECT,
-      registryRegion,
-      backupsBucketName: 'sigma-backups',
-      backupsBucketRegion: 'eu',
-      backupsAccountName: 'backups',
-      cleanupAccountName: 'cleanup',
-    },
-    { protect: true },
-  )
+  const gcloudStack = new GcloudStack('main-gcloud', {
+    googleProject: env.GOOGLE_PROJECT,
+    registryRegion,
+    backupsBucketName: 'sigma-backups',
+    backupsBucketRegion: 'eu',
+    backupsAccountName: 'backups',
+    cleanupAccountName: 'cleanup',
+  })
 
   new GcloudSecretsStack(
     'main-gcloud-secrets',
@@ -98,14 +94,18 @@ export = async () => {
     },
   )
 
-  const fluxStack = new FluxStack(
-    'main-flux',
+  const fluxBootstrap = new FluxBootstrap(
+    'main-flux-bootstrap',
     {
-      k8sCredentials: mainCluster.k8sCredentials,
-      githubToken: env.GITHUB_TOKEN,
-      githubOrganization: env.GITHUB_OWNER,
+      githubOwner: env.GITHUB_OWNER,
       githubRepository: 'k8s',
+      githubToken: env.GITHUB_TOKEN,
       clusterName: 'main',
+      kubeconfig: mainCluster.kubeconfig,
+      componentsExtras: [
+        'image-reflector-controller',
+        'image-automation-controller',
+      ],
     },
     { dependsOn: mainCluster },
   )
@@ -120,7 +120,7 @@ export = async () => {
       clusterDomain: 'sigma-k8s.app',
       clusterName: 'main',
     },
-    { dependsOn: [mainCluster, fluxStack] },
+    { dependsOn: [mainCluster, fluxBootstrap] },
   )
 
   return {

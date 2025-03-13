@@ -1,7 +1,7 @@
 import * as infisical from '@ptfm/infisical'
 import * as cloudflare from '@pulumi/cloudflare'
 import * as pulumi from '@pulumi/pulumi'
-import { CloudflareEchSetting } from '../providers/cloudflare-ech'
+import { CloudflareEchSetting } from '../resources/cloudflare-ech'
 
 export type CloudflareStackConfig = {
   cloudflareAccountId: string
@@ -59,7 +59,7 @@ export class CloudflareStack extends pulumi.ComponentResource {
         settings: {
           alwaysUseHttps: 'on',
           automaticHttpsRewrites: 'on',
-          ssl: 'full',
+          ssl: 'flexible',
         },
       },
       { parent: this },
