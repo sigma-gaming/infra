@@ -112,6 +112,7 @@ export class GcloudCleanupStack extends pulumi.ComponentResource {
           },
         },
         launchStage: 'BETA',
+        deletionProtection: false,
       },
       { parent: this, dependsOn: [cloudRunAPI] },
     )
@@ -138,7 +139,6 @@ export class GcloudCleanupStack extends pulumi.ComponentResource {
           httpMethod: 'POST',
           oauthToken: {
             serviceAccountEmail: cleanupAccount.email,
-            scope: 'https://www.googleapis.com/auth/cloud-platform',
           },
         },
       },

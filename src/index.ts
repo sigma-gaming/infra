@@ -92,17 +92,17 @@ export = async () => {
     },
   )
 
-  // new GcloudCleanupStack(
-  //   'main-gcloud-cleanup',
-  //   {
-  //     projectId: env.GOOGLE_PROJECT,
-  //     registryRegion,
-  //     registryRepository: gcloudStack.dockerRegistry.name,
-  //     schedulerRegion: 'europe-west1',
-  //     cleanupAccountName: 'cleanup',
-  //   },
-  //   { dependsOn: [gcloudStack] },
-  // )
+  new GcloudCleanupStack(
+    'main-gcloud-cleanup',
+    {
+      projectId: env.GOOGLE_PROJECT,
+      registryRegion,
+      registryRepository: gcloudStack.dockerRegistry.name,
+      schedulerRegion: 'europe-west1',
+      cleanupAccountName: 'cleanup',
+    },
+    { dependsOn: [gcloudStack] },
+  )
 
   const fluxBootstrap = new FluxBootstrap(
     'main-flux-bootstrap',
