@@ -43,6 +43,7 @@ export class FluxBootstrap extends pulumi.ComponentResource {
           `--owner=${githubOwner}`,
           `--repository=${githubRepository}`,
           `--path=clusters/${clusterName}`,
+          '--read-write-key',
           componentsExtras &&
             `--components-extra=${componentsExtras.join(',')}`,
         ]
