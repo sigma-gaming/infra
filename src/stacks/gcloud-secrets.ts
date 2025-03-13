@@ -8,12 +8,10 @@ export type GcloudSecretsStackConfig = {
   googleCredsNamespace: string
   registryCredsNamespace: string
   backupsCredentialsSecretName: string
-  cleanupCredsSecretName: string
   registryRegion: string
   registryPullerEmail: pulumi.Input<string>
   registryKey: pulumi.Input<string>
   backupKey: pulumi.Input<string>
-  cleanupKey: pulumi.Input<string>
 }
 
 export class GcloudSecretsStack extends pulumi.ComponentResource {
@@ -22,7 +20,6 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
   public readonly registryCredentials: kubernetes.core.v1.Secret
   public readonly registryPuller: kubernetes.core.v1.ServiceAccount
   public readonly backupCredentials: kubernetes.core.v1.Secret
-  public readonly cleanupCredentials: kubernetes.core.v1.Secret
 
   constructor(
     name: string,
@@ -124,27 +121,12 @@ export class GcloudSecretsStack extends pulumi.ComponentResource {
       { provider: k8sProvider, parent: this },
     )
 
-    this.cleanupCredentials = new kubernetes.core.v1.Secret(
-      'cleanup-credentials',
-      {
-        metadata: {
-          name: config.cleanupCredsSecretName,
-          namespace: this.googleCredsNamespace.metadata.name,
-        },
-        stringData: {
-          key: config.cleanupKey,
-        },
-      },
-      { provider: k8sProvider, parent: this },
-    )
-
     this.registerOutputs({
       googleCredsNamespace: this.googleCredsNamespace,
       registryCredsNamespace: this.registryCredsNamespace,
       registryCredentials: this.registryCredentials,
       registryPuller: this.registryPuller,
       backupCredentials: this.backupCredentials,
-      cleanupCredentials: this.cleanupCredentials,
     } satisfies ComponentOutputs<GcloudSecretsStack>)
   }
 }

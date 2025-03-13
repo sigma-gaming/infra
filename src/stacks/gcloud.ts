@@ -8,7 +8,6 @@ export type GcloudStackConfig = {
   backupsBucketName: string
   backupsBucketRegion: string
   backupsAccountName: string
-  cleanupAccountName: string
 }
 
 export class GcloudStack extends pulumi.ComponentResource {
@@ -16,10 +15,8 @@ export class GcloudStack extends pulumi.ComponentResource {
   public readonly backupsBucket: gcp.storage.Bucket
   public readonly registryPuller: gcp.serviceaccount.Account
   public readonly backupAccount: gcp.serviceaccount.Account
-  public readonly cleanupAccount: gcp.serviceaccount.Account
   public readonly registryKey: gcp.serviceaccount.Key
   public readonly backupKey: gcp.serviceaccount.Key
-  public readonly cleanupKey: gcp.serviceaccount.Key
 
   constructor(
     name: string,
@@ -115,71 +112,15 @@ export class GcloudStack extends pulumi.ComponentResource {
       { parent: this },
     )
 
-    this.cleanupAccount = new gcp.serviceaccount.Account(
-      'cleanup-account',
-      {
-        accountId: config.cleanupAccountName,
-        displayName: 'Service Account for cleanup',
-      },
-      { parent: this },
-    )
-
-    const cleanupAdminRole = new gcp.projects.IAMCustomRole(
-      'cleanup-admin-role',
-      {
-        roleId: 'cleanupAdmin',
-        title: 'Cleanup Admin',
-        description: 'A custom role for cleanup',
-        permissions: [
-          'artifactregistry.repositories.get',
-          'artifactregistry.repositories.list',
-          'artifactregistry.dockerimages.list',
-          'artifactregistry.packages.delete',
-          'artifactregistry.packages.get',
-          'artifactregistry.packages.list',
-          'artifactregistry.tags.get',
-          'artifactregistry.tags.list',
-          'artifactregistry.tags.delete',
-          'artifactregistry.versions.delete',
-          'artifactregistry.versions.list',
-          'artifactregistry.versions.get',
-        ],
-      },
-      { parent: this },
-    )
-
-    new gcp.artifactregistry.RepositoryIamMember(
-      'cleanup-admin-role-binding',
-      {
-        location: this.dockerRegistry.location,
-        repository: this.dockerRegistry.name,
-        role: cleanupAdminRole.id,
-        member: pulumi.interpolate`serviceAccount:${this.cleanupAccount.email}`,
-      },
-      { parent: this },
-    )
-
     this.registryKey = new gcp.serviceaccount.Key(
       'registry-key',
-      {
-        serviceAccountId: this.registryPuller.name,
-      },
+      { serviceAccountId: this.registryPuller.name },
       { parent: this },
     )
 
     this.backupKey = new gcp.serviceaccount.Key(
       'backup-key',
-      {
-        serviceAccountId: this.backupAccount.name,
-      },
-      { parent: this },
-    )
-
-    this.cleanupKey = new gcp.serviceaccount.Key(
-      'cleanup-key',
-      {
-        serviceAccountId: this.cleanupAccount.name,
-      },
+      { serviceAccountId: this.backupAccount.name },
       { parent: this },
     )
 
@@ -188,10 +129,8 @@ export class GcloudStack extends pulumi.ComponentResource {
       backupsBucket: this.backupsBucket,
       registryPuller: this.registryPuller,
       backupAccount: this.backupAccount,
-      cleanupAccount: this.cleanupAccount,
       registryKey: this.registryKey,
       backupKey: this.backupKey,
-      cleanupKey: this.cleanupKey,
     } satisfies ComponentOutputs<GcloudStack>)
   }
 }

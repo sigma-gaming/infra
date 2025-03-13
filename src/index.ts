@@ -12,6 +12,7 @@ import { CommonSecretsStack } from './stacks/common-secrets'
 import { DoTalosClusterStack } from './stacks/do-talos-cluster-stack'
 import { FluxWebhookStack } from './stacks/flux-webhook'
 import { GcloudStack } from './stacks/gcloud'
+import { GcloudCleanupStack } from './stacks/gcloud-cleanup'
 import { GcloudSecretsStack } from './stacks/gcloud-secrets'
 
 export = async () => {
@@ -72,7 +73,6 @@ export = async () => {
     backupsBucketName: 'sigma-backups',
     backupsBucketRegion: 'eu',
     backupsAccountName: 'backups',
-    cleanupAccountName: 'cleanup',
   })
 
   new GcloudSecretsStack(
@@ -82,17 +82,27 @@ export = async () => {
       googleCredsNamespace: 'google-creds',
       registryCredsNamespace: 'registry-creds',
       backupsCredentialsSecretName: 'gcloud-backups-credentials',
-      cleanupCredsSecretName: 'gcloud-cleanup-credentials',
       registryRegion,
       registryPullerEmail: gcloudStack.registryPuller.email,
       registryKey: gcloudStack.registryKey.privateKey.apply(fromBase64),
       backupKey: gcloudStack.backupKey.privateKey.apply(fromBase64),
-      cleanupKey: gcloudStack.cleanupKey.privateKey.apply(fromBase64),
     },
     {
       dependsOn: [gcloudStack, mainCluster],
     },
   )
+
+  // new GcloudCleanupStack(
+  //   'main-gcloud-cleanup',
+  //   {
+  //     projectId: env.GOOGLE_PROJECT,
+  //     registryRegion,
+  //     registryRepository: gcloudStack.dockerRegistry.name,
+  //     schedulerRegion: 'europe-west1',
+  //     cleanupAccountName: 'cleanup',
+  //   },
+  //   { dependsOn: [gcloudStack] },
+  // )
 
   const fluxBootstrap = new FluxBootstrap(
     'main-flux-bootstrap',
