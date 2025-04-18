@@ -20,6 +20,7 @@ export const domainZoneIds: Record<string, string> = {
   'sigmacloud.app': 'CF_ID_REMOVED',
   'sigm.to': 'CF_ID_REMOVED',
   'sigma1.games': 'CF_ID_REMOVED',
+  'sigmapay.one': 'CF_ID_REMOVED',
 }
 
 export const applicationDomains = [
@@ -27,6 +28,7 @@ export const applicationDomains = [
   'sigmacloud.app',
   'sigm.to',
   'sigma1.games',
+  'sigmapay.one',
 ]
 
 export const applicationOrganizationMap: Record<string, string> = {
@@ -34,4 +36,5 @@ export const applicationOrganizationMap: Record<string, string> = {
   'sigma1.games': 'Sigma Games',
   'sigmacloud.app': 'Sigma Cloud',
   'sigm.to': 'Sigma Games',
+  'sigmapay.one': 'Sigma Pay',
 }
