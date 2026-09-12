@@ -11,3 +11,6 @@ tsconfig.tsbuildinfo
 !setup.js
 .env
 /backend
+
+.DS_Store
+*.hcl
